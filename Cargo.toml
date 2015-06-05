@@ -1,0 +1,13 @@
+[package]
+name = "pbrt"
+version = "0.1.0"
+authors = ["acolley <alnessy@hotmail.com>"]
+
+[dependencies]
+clap = "0.10.3"
+
+[dependencies.nalgebra]
+git = "https://github.com/sebcrozet/nalgebra.git"
+
+[dependencies.ncollide]
+git = "https://github.com/sebcrozet/ncollide.git"
