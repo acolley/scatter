@@ -1,41 +1,101 @@
 extern crate clap;
+extern crate image;
 #[macro_use(assert_approx_eq)]
 extern crate nalgebra as na;
 extern crate ncollide;
 
-use self::na::{Vec3, Mat3, Mat4};
+use std::fs::{File};
+use std::path::{Path};
+
+use self::na::{Iso3, Pnt3, Vec3, Translate};
 use ncollide::shape::{Ball};
-use transform::Transform;
+use ncollide::ray::{LocalRayCast, RayCast, RayIntersection};
+use ncollide::math::{Point, Vect, Scalar};
+use ncollide::bounding_volume::{BoundingSphere, HasBoundingSphere};
+use ncollide::partitioning::BVT;
 
 mod camera;
-mod transform;
 
-// use clap::{Arg, App, SubCommand};
+use camera::{Camera, PerspectiveCamera};
+use clap::{Arg, App};
 
 struct Sphere {
-    transform: Transform,
-    ball: Ball<f64>
+    ball: Ball<f64>,
+    transform: Iso3<f64>
+}
+
+/// This is required because the compiler cannot infer enough
+/// type information in order to resolve the method 'bounding_sphere'
+/// on types that implement HasBoundingSphere (including Ball).
+fn get_bounding_sphere<T: HasBoundingSphere<P, M>, P: Point, M: Translate<P>>(t: &T, m: &M) -> BoundingSphere<P> {
+    t.bounding_sphere(m)
 }
 
 impl Sphere {
-    fn new(transform: Transform, ball: Ball<f64>) -> Sphere {
+    fn new(ball: Ball<f64>, transform: Iso3<f64>) -> Sphere {
         Sphere {
-            transform : transform,
-            ball : ball
+            ball : ball,
+            transform : transform
         }
+    }
+
+    fn ball(&self) -> &Ball<f64> {
+        &self.ball
+    }
+
+    fn transform(&self) -> &Iso3<f64> {
+        &self.transform
     }
 }
 
 fn main() {
-    let mut spheres = Vec::new();
-    spheres.push(Sphere::new(Transform::identity(), Ball::new(1.0)));
-    // let matches = App::new("pbrt")
-    //                    .version("1.0")
-    //                    .author("acolley <alnessy@hotmail.com>")
-    //                    .about("Physically Based Ray Tracer")
+    let matches = App::new("pbrt")
+                       .version("0.1")
+                       .arg(Arg::with_name("OUTPUT")
+                            .short("o")
+                            .long("output")
+                            .takes_value(true))
+                       .arg(Arg::with_name("WIDTH")
+                            .short("w")
+                            .long("width")
+                            .takes_value(true))
+                       .arg(Arg::with_name("HEIGHT")
+                            .short("h")
+                            .long("height")
+                            .takes_value(true))
+                       .get_matches();
 
-    // let vec: Vec3<f64> = nalgebra::zero();
-    let mat: Mat3<f64> = na::one();
-    // let transformed = mat * vec;
-    println!("{:?}", mat);
+    // TODO: fix bug where width/height ratio is not square
+    let width = matches.value_of("WIDTH").unwrap_or("100").parse::<u32>().ok().expect("Value for width is not a valid unsigned integer");
+    let height = matches.value_of("HEIGHT").unwrap_or("100").parse::<u32>().ok().expect("Value for height is not a valid unsigned integer");
+
+    let mut camera = PerspectiveCamera::new(width, height, 45.0, 1.0, 100000.0);
+    camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
+
+    let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
+    let sphere = Box::new(Sphere::new(Ball::new(1.0), na::one()));
+    let bounding_sphere = get_bounding_sphere(sphere.ball(), &transform);
+    // let spheres = vec!(
+    //     (sphere, bounding_sphere)
+    // );
+
+    // let mut world = BVT::new_balanced(spheres);
+
+    let mut colours = Vec::new();
+    for x in 0..width {
+        for y in 0..height {
+            let ray = camera.ray_from(x, y);
+            if bounding_sphere.intersects_ray(&ray) {
+                colours.push(255u8);
+            } else {
+                colours.push(0);
+            }
+            // world.cast_ray(&ray);
+        }
+    }
+
+    let filename = matches.value_of("OUTPUT").unwrap_or("pbrt.png");
+    let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");
+    let img = image::ImageBuffer::from_raw(width, height, colours).expect("Could not create image buffer");
+    let _ = image::ImageLuma8(img).save(out, image::PNG);
 }
