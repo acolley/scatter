@@ -6,13 +6,14 @@ use ncollide::ray::{Ray};
 
 pub trait Camera {
     fn ray_from(&self, x: u32, y: u32) -> Ray<Pnt3<f64>>;
+    fn look_at_z(&mut self, at: &Pnt3<f64>, up: &Vec3<f64>);
 }
 
 pub struct PerspectiveCamera {
     width: u32,
     height: u32,
-    iso : Iso3<f64>,
-    proj : PerspMat3<f64>
+    iso: Iso3<f64>,
+    proj: PerspMat3<f64>
 }
 
 impl PerspectiveCamera {
@@ -23,11 +24,6 @@ impl PerspectiveCamera {
             iso : na::one(),
             proj : PerspMat3::new((width as f64) / (height as f64), fov, znear, zfar)
         }
-    }
-
-    pub fn look_at_z(&mut self, at: &Pnt3<f64>, up: &Vec3<f64>) {
-        let mut iso = self.iso;
-        iso.look_at_z(&self.iso.translation().to_pnt(), at, up);
     }
 }
 
@@ -40,6 +36,11 @@ impl Camera for PerspectiveCamera {
         let h_eye = viewproj * point;
         let eye: Pnt3<f64> = na::from_homogeneous(&h_eye);
         Ray::new(self.iso.translation().to_pnt(), na::normalize(&(eye - self.iso.translation().to_pnt())))
+    }
+
+    fn look_at_z(&mut self, at: &Pnt3<f64>, up: &Vec3<f64>) {
+        let mut iso = self.iso;
+        iso.look_at_z(&self.iso.translation().to_pnt(), at, up);
     }
 }
 

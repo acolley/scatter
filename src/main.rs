@@ -15,9 +15,11 @@ use ncollide::bounding_volume::{BoundingSphere, HasBoundingSphere};
 use ncollide::partitioning::BVT;
 
 mod camera;
+mod light;
 
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
+use light::{DirectionalLight, Light};
 
 struct Sphere {
     ball: Ball<f64>,
@@ -65,7 +67,6 @@ fn main() {
                             .takes_value(true))
                        .get_matches();
 
-    // TODO: fix bug where width/height ratio is not square
     let width = matches.value_of("WIDTH").unwrap_or("100").parse::<u32>().ok().expect("Value for width is not a valid unsigned integer");
     let height = matches.value_of("HEIGHT").unwrap_or("100").parse::<u32>().ok().expect("Value for height is not a valid unsigned integer");
 
@@ -81,14 +82,14 @@ fn main() {
 
     // let mut world = BVT::new_balanced(spheres);
 
+    let l = DirectionalLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Vec3::y());
     let mut colours = Vec::new();
-    for x in 0..width {
-        for y in 0..height {
+    for y in 0..height {
+        for x in 0..width {
             let ray = camera.ray_from(x, y);
-            if bounding_sphere.intersects_ray(&ray) {
-                colours.push(255u8);
-            } else {
-                colours.push(0);
+            match bounding_sphere.toi_and_normal_with_ray(&ray, true) {
+                Some(x) => colours.push(255u8),
+                None => colours.push(0)
             }
             // world.cast_ray(&ray);
         }
