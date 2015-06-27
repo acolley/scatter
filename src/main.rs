@@ -9,7 +9,7 @@ use std::path::{Path};
 
 use self::na::{Iso3, Pnt3, Vec3, Translate};
 use ncollide::shape::{Ball};
-use ncollide::ray::{LocalRayCast, RayCast, RayIntersection};
+use ncollide::ray::{LocalRayCast, Ray, RayCast, RayIntersection};
 use ncollide::math::{Point, Vect, Scalar};
 use ncollide::bounding_volume::{BoundingSphere, HasBoundingSphere};
 use ncollide::partitioning::BVT;
@@ -50,6 +50,44 @@ impl Sphere {
     }
 }
 
+fn trace(ray: &Ray<Pnt3<f64>>, 
+         spheres: &[Box<LocalRayCast<Pnt3<f64>>>], 
+         lights: &[Box<Light>]) -> Vec3<f64> {
+    let mut colour: Vec3<f64> = na::zero();
+    for sphere in spheres {
+        for light in lights {
+            match sphere.toi_and_normal_with_ray(ray, true) {
+                Some(isect) => {
+                    let p = ray.orig + ray.dir * isect.toi;
+                    // TODO: incorporate colour from the object itself
+                    let c = light.sample(&p, &isect.normal);
+                    colour = colour + c;
+                },
+                None => {}
+            }
+        }
+    }
+    colour
+}
+
+fn render(width: u32, 
+          height: u32, 
+          camera: &PerspectiveCamera,
+          spheres: &[Box<LocalRayCast<Pnt3<f64>>>], 
+          lights: &[Box<Light>]) -> Vec<u8> {
+    let mut colours = Vec::new();
+    for y in 0..height {
+        for x in 0..width {
+            let ray = camera.ray_from(x, y);
+            let c = trace(&ray, spheres, lights);
+            colours.push(na::clamp(c.x * 255.0, 0.0, 255.0) as u8);
+            colours.push(na::clamp(c.y * 255.0, 0.0, 255.0) as u8);
+            colours.push(na::clamp(c.z * 255.0, 0.0, 255.0) as u8);
+        }
+    }
+    colours
+}
+
 fn main() {
     let matches = App::new("pbrt")
                        .version("0.1")
@@ -75,34 +113,22 @@ fn main() {
 
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
     let sphere = Box::new(Sphere::new(Ball::new(1.0), na::one()));
-    let bounding_sphere = get_bounding_sphere(sphere.ball(), &transform);
+    let bounding_sphere = Box::new(get_bounding_sphere(sphere.ball(), &transform));
     // let spheres = vec!(
     //     (sphere, bounding_sphere)
     // );
 
     // let mut world = BVT::new_balanced(spheres);
 
-    let dir_light = DirectionalLight::new(1.0, na::one(), Vec3::z());
-    let pnt_light = PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 20.0);
-    let mut colours = Vec::new();
-    for y in 0..height {
-        for x in 0..width {
-            let ray = camera.ray_from(x, y);
-            match bounding_sphere.toi_and_normal_with_ray(&ray, true) {
-                Some(isect) => {
-                    let p = ray.orig + ray.dir * isect.toi;
-                    // incorporate colour from the object itself
-                    // let c = dir_light.sample(&p, &isect.normal);
-                    let c = pnt_light.sample(&p, &isect.normal);
-                    colours.push(na::clamp((c.x * 255.0) as u8, 0, 255));
-                    colours.push(na::clamp((c.y * 255.0) as u8, 0, 255));
-                    colours.push(na::clamp((c.z * 255.0) as u8, 0, 255));
-                },
-                None => { colours.push(0); colours.push(0); colours.push(0); }
-            }
-            // world.cast_ray(&ray);
-        }
-    }
+    let mut lights = Vec::new();
+    let dir_light = Box::new(DirectionalLight::new(1.0, na::one(), Vec3::z()));
+    lights.push(dir_light as Box<Light>);
+    let pnt_light = Box::new(PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 20.0));
+    lights.push(pnt_light as Box<Light>);
+
+    let spheres = [bounding_sphere as Box<LocalRayCast<Pnt3<f64>>>];
+
+    let colours = render(width, height, &camera, &spheres, &lights);
 
     let filename = matches.value_of("OUTPUT").unwrap_or("pbrt.png");
     let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");
