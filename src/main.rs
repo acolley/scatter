@@ -19,7 +19,7 @@ mod light;
 
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
-use light::{DirectionalLight, Light};
+use light::{DirectionalLight, Light, PointLight};
 
 struct Sphere {
     ball: Ball<f64>,
@@ -82,13 +82,20 @@ fn main() {
 
     // let mut world = BVT::new_balanced(spheres);
 
-    let l = DirectionalLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Vec3::y());
+    let dir_light = DirectionalLight::new(1.0, na::one(), Vec3::z());
+    let pnt_light = PointLight::new(1.0, na::one(), Pnt3::new(10.0, 0.0, 0.0), 20.0);
     let mut colours = Vec::new();
     for y in 0..height {
         for x in 0..width {
             let ray = camera.ray_from(x, y);
             match bounding_sphere.toi_and_normal_with_ray(&ray, true) {
-                Some(x) => colours.push(255u8),
+                Some(isect) => {
+                    let p = ray.orig + ray.dir * isect.toi;
+                    // incorporate colour from the object itself
+                    // let c = dir_light.sample(&p, &isect.normal);
+                    let c = pnt_light.sample(&p, &isect.normal);
+                    colours.push(na::clamp((c.x * 255.0) as u8, 0, 255))
+                },
                 None => colours.push(0)
             }
             // world.cast_ray(&ray);
