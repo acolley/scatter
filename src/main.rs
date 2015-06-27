@@ -83,7 +83,7 @@ fn main() {
     // let mut world = BVT::new_balanced(spheres);
 
     let dir_light = DirectionalLight::new(1.0, na::one(), Vec3::z());
-    let pnt_light = PointLight::new(1.0, na::one(), Pnt3::new(10.0, 0.0, 0.0), 20.0);
+    let pnt_light = PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 20.0);
     let mut colours = Vec::new();
     for y in 0..height {
         for x in 0..width {
@@ -94,9 +94,11 @@ fn main() {
                     // incorporate colour from the object itself
                     // let c = dir_light.sample(&p, &isect.normal);
                     let c = pnt_light.sample(&p, &isect.normal);
-                    colours.push(na::clamp((c.x * 255.0) as u8, 0, 255))
+                    colours.push(na::clamp((c.x * 255.0) as u8, 0, 255));
+                    colours.push(na::clamp((c.y * 255.0) as u8, 0, 255));
+                    colours.push(na::clamp((c.z * 255.0) as u8, 0, 255));
                 },
-                None => colours.push(0)
+                None => { colours.push(0); colours.push(0); colours.push(0); }
             }
             // world.cast_ray(&ray);
         }
@@ -105,5 +107,5 @@ fn main() {
     let filename = matches.value_of("OUTPUT").unwrap_or("pbrt.png");
     let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");
     let img = image::ImageBuffer::from_raw(width, height, colours).expect("Could not create image buffer");
-    let _ = image::ImageLuma8(img).save(out, image::PNG);
+    let _ = image::ImageRgb8(img).save(out, image::PNG);
 }
