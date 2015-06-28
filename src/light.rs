@@ -34,9 +34,12 @@ impl Light for PointLight {
             dir.normalize_mut();
             let dot: f64 = na::dot(n, &dir);
             if dot > 0.0 {
-                // intensity changes with the square distance to the point
-                let intensity = self.intensity * (1.0 / dist.sqrt().sqrt());
-                self.colour * dot * intensity
+                // attenuation is 1 / square distance scaled
+                // by the radius so that the point light has
+                // higher intensity closer to the point light
+                // eventually falling off to 0 at its radius
+                let attenuation = (1.0 / dist) * self.radius;
+                self.colour * dot * self.intensity * attenuation
             } else {
                 na::zero()
             }

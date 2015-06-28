@@ -16,10 +16,18 @@ use ncollide::partitioning::BVT;
 
 mod camera;
 mod light;
+mod material;
 
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
 use light::{DirectionalLight, Light, PointLight};
+use material::{Material};
+
+struct Object {
+    mesh: Box<RayCast<Pnt3<f64>, Iso3<f64>>>,
+    transform: Iso3<f64>,
+    material: Material
+}
 
 struct Sphere {
     ball: Ball<f64>,
@@ -111,9 +119,18 @@ fn main() {
     let mut camera = PerspectiveCamera::new(width, height, 45.0, 1.0, 100000.0);
     camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
 
+    let mut spheres = Vec::new();
+
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
     let sphere = Box::new(Sphere::new(Ball::new(1.0), na::one()));
     let bounding_sphere = Box::new(get_bounding_sphere(sphere.ball(), &transform));
+    spheres.push(bounding_sphere as Box<LocalRayCast<Pnt3<f64>>>);
+
+    let transform = Iso3::new(Vec3::new(-4.0, 5.0, 15.0), na::zero());
+    let sphere = Box::new(Sphere::new(Ball::new(2.0), na::one()));
+    let bounding_sphere = Box::new(get_bounding_sphere(sphere.ball(), &transform));
+    spheres.push(bounding_sphere as Box<LocalRayCast<Pnt3<f64>>>);
+
     // let spheres = vec!(
     //     (sphere, bounding_sphere)
     // );
@@ -121,12 +138,12 @@ fn main() {
     // let mut world = BVT::new_balanced(spheres);
 
     let mut lights = Vec::new();
-    let dir_light = Box::new(DirectionalLight::new(1.0, na::one(), Vec3::z()));
+    let dir_light = Box::new(DirectionalLight::new(0.2, na::one(), Vec3::z()));
     lights.push(dir_light as Box<Light>);
-    let pnt_light = Box::new(PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 20.0));
-    lights.push(pnt_light as Box<Light>);
-
-    let spheres = [bounding_sphere as Box<LocalRayCast<Pnt3<f64>>>];
+    let pnt_light_red = Box::new(PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 100.0));
+    lights.push(pnt_light_red as Box<Light>);
+    let pnt_light_green = Box::new(PointLight::new(1.0, Vec3::new(0.0, 1.0, 0.0), Pnt3::new(0.0, 5.0, 0.0), 50.0));
+    lights.push(pnt_light_green as Box<Light>);
 
     let colours = render(width, height, &camera, &spheres, &lights);
 
