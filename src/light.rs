@@ -94,7 +94,7 @@ impl Light for DirectionalLight {
     }
 
     fn sample(&self, p: &Pnt3<f64>) -> (Vec3<f64>, Vec3<f64>) {
-        (self.colour * self.intensity, self.direction)
+        (self.colour * self.intensity, -self.direction)
     }
 }
 
