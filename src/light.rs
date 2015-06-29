@@ -3,6 +3,11 @@ use na;
 use na::{ApproxEq, Norm, Pnt3, Vec3};
 use ncollide::ray::{Ray, LocalRayCast};
 
+pub enum LightType {
+    Point,
+    Directional
+}
+
 pub trait Light {
     fn colour(&self) -> &Vec3<f64>;
     /// Is the light visible from the point given a
@@ -63,27 +68,6 @@ impl Light for PointLight {
             (na::zero(), wi)
         }
     }
-    // fn sample(&self, p: &Pnt3<f64>, n: &Vec3<f64>) -> Vec3<f64> {
-    //     let mut dir = self.position - *p;
-    //     let dist = dir.sqnorm();
-    //     if dist > 0.0 && dist <= self.radius * self.radius {
-    //         dir.normalize_mut();
-    //         let dot: f64 = na::dot(n, &dir);
-    //         if dot > 0.0 {
-    //             // attenuation is 1 / square distance scaled
-    //             // by the radius so that the point light has
-    //             // higher intensity closer to the point light
-    //             // eventually falling off to 0 at its radius
-    //             let attenuation = (1.0 / dist) * self.radius;
-    //             self.colour * dot * self.intensity * attenuation
-    //         } else {
-    //             na::zero()
-    //         }
-    //     } else {
-    //         // out of range of point light so return black
-    //         na::zero()
-    //     }
-    // }
 }
 
 pub struct DirectionalLight {
@@ -112,22 +96,6 @@ impl Light for DirectionalLight {
     fn sample(&self, p: &Pnt3<f64>) -> (Vec3<f64>, Vec3<f64>) {
         (self.colour * self.intensity, self.direction)
     }
-
-    // fn sample(&self, p: &Pnt3<f64>, n: &Vec3<f64>) -> Vec3<f64> {
-    //     // compute a really basic diffuse colour given a
-    //     // point and its normal to shade based on the orientation
-    //     // of the light relative to the normal and the colour
-    //     // and intensity of the light
-    //     let dot: f64 = na::dot(n, &-self.direction);
-    //     if dot > 0.0 {
-    //         // amount of light reaching point dependant
-    //         // on normal of surface at the point
-    //         self.colour * dot * self.intensity
-    //     } else {
-    //         // light not visible from point
-    //         na::zero()
-    //     }
-    // }
 }
 
 // #[test]
