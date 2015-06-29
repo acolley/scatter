@@ -4,6 +4,7 @@ use na::{Pnt3, Vec3};
 use ncollide::ray::{LocalRayCast, Ray};
 
 use light::{Light, LightType};
+use spectrum::{Spectrum};
 use surface::{Diffuse, SurfaceIntegrator};
 
 pub struct Scene {
@@ -27,9 +28,9 @@ impl Scene {
         self.lights.push(light);
     }
 
-    pub fn trace(&mut self, ray: &Ray<Pnt3<f64>>) -> Vec3<f64> {
+    pub fn trace(&mut self, ray: &Ray<Pnt3<f64>>, depth: isize) -> Spectrum {
         let surface = Diffuse;
-        let mut colour: Vec3<f64> = na::zero();
+        let mut colour: Spectrum = na::zero();
         for sphere in self.spheres.iter_mut() {
             match sphere.toi_and_normal_with_ray(ray, true) {
                 Some(isect) => {

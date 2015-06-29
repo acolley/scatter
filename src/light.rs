@@ -3,13 +3,15 @@ use na;
 use na::{ApproxEq, Norm, Pnt3, Vec3};
 use ncollide::ray::{Ray, LocalRayCast};
 
+use spectrum::{Spectrum};
+
 pub enum LightType {
     Point,
     Directional
 }
 
 pub trait Light {
-    fn colour(&self) -> &Vec3<f64>;
+    fn colour(&self) -> &Spectrum;
     /// Is the light visible from the point given a
     /// slice of ray castable objects that will be
     /// tested for intersection?
@@ -17,19 +19,18 @@ pub trait Light {
 
     /// Sample the light given a point and its shading
     /// normal in world space.
-    // fn sample(&self, p: &Pnt3<f64>, n: &Vec3<f64>) -> Vec3<f64>;
-    fn sample(&self, p: &Pnt3<f64>) -> (Vec3<f64>, Vec3<f64>);
+    fn sample(&self, p: &Pnt3<f64>) -> (Spectrum, Vec3<f64>);
 }
 
 pub struct PointLight {
     intensity: f64,
-    colour: Vec3<f64>,
+    colour: Spectrum,
 	position: Pnt3<f64>,
     radius: f64
 }
 
 impl PointLight {
-    pub fn new(intensity: f64, colour: Vec3<f64>, position: Pnt3<f64>, radius: f64) -> PointLight {
+    pub fn new(intensity: f64, colour: Spectrum, position: Pnt3<f64>, radius: f64) -> PointLight {
         PointLight {
             intensity : intensity,
             colour : colour,
@@ -40,7 +41,7 @@ impl PointLight {
 }
 
 impl Light for PointLight {
-    fn colour(&self) -> &Vec3<f64> { &self.colour }
+    fn colour(&self) -> &Spectrum { &self.colour }
 
     fn visible_from(&self, p: &Pnt3<f64>, spheres: &[Box<LocalRayCast<Pnt3<f64>>>]) -> bool {
         let mut dir = self.position - *p;
@@ -56,7 +57,7 @@ impl Light for PointLight {
 
     /// Give the amount of incident light at a particular
     /// point in the scene.
-    fn sample(&self, p: &Pnt3<f64>) -> (Vec3<f64>, Vec3<f64>) {
+    fn sample(&self, p: &Pnt3<f64>) -> (Spectrum, Vec3<f64>) {
         let mut wi = self.position - *p;
         let dist = wi.sqnorm();
         wi.normalize_mut();
@@ -72,12 +73,12 @@ impl Light for PointLight {
 
 pub struct DirectionalLight {
     intensity: f64,
-    colour: Vec3<f64>,
+    colour: Spectrum,
     direction: Vec3<f64>
 }
 
 impl DirectionalLight {
-    pub fn new(intensity: f64, colour: Vec3<f64>, direction: Vec3<f64>) -> DirectionalLight {
+    pub fn new(intensity: f64, colour: Spectrum, direction: Vec3<f64>) -> DirectionalLight {
         DirectionalLight {
             intensity : intensity,
             colour : colour,
@@ -87,13 +88,13 @@ impl DirectionalLight {
 }
 
 impl Light for DirectionalLight {
-    fn colour(&self) -> &Vec3<f64> { &self.colour }
+    fn colour(&self) -> &Spectrum { &self.colour }
 
     fn visible_from(&self, p: &Pnt3<f64>, spheres: &[Box<LocalRayCast<Pnt3<f64>>>]) -> bool {
         true
     }
 
-    fn sample(&self, p: &Pnt3<f64>) -> (Vec3<f64>, Vec3<f64>) {
+    fn sample(&self, p: &Pnt3<f64>) -> (Spectrum, Vec3<f64>) {
         (self.colour * self.intensity, -self.direction)
     }
 }

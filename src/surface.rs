@@ -3,13 +3,14 @@ use na;
 use na::{Pnt3, Vec3};
 
 use light::{Light};
+use spectrum::{Spectrum};
 
 pub trait SurfaceIntegrator {
 	fn sample(&self, 
               p: &Pnt3<f64>, 
               n: &Vec3<f64>, 
-              colour: &Vec3<f64>, 
-              lights: &[Box<Light>]) -> Vec3<f64>;
+              colour: &Spectrum, 
+              lights: &[Box<Light>]) -> Spectrum;
 }
 
 pub struct Diffuse;
@@ -18,8 +19,8 @@ impl SurfaceIntegrator for Diffuse {
     fn sample(&self, 
               p: &Pnt3<f64>,
               n: &Vec3<f64>,
-              colour: &Vec3<f64>,
-              lights: &[Box<Light>]) -> Vec3<f64> {
+              colour: &Spectrum,
+              lights: &[Box<Light>]) -> Spectrum {
         // TODO: only pass in lights that are not obscured in the direction of the point?
         let mut value = na::zero();
         for light in lights {
@@ -41,8 +42,8 @@ impl SurfaceIntegrator for PerfectSpecular {
     fn sample(&self, 
               p: &Pnt3<f64>, 
               n: &Vec3<f64>, 
-              colour: &Vec3<f64>, 
-              lights: &[Box<Light>]) -> Vec3<f64> {
+              colour: &Spectrum, 
+              lights: &[Box<Light>]) -> Spectrum {
         let mut value = na::zero();
         for light in lights {
             let (li, wi) = light.sample(&p);

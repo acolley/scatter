@@ -18,6 +18,7 @@ mod camera;
 mod light;
 mod material;
 mod scene;
+mod spectrum;
 mod surface;
 
 use camera::{Camera, PerspectiveCamera};
@@ -65,12 +66,13 @@ impl Sphere {
 fn render(width: u32, 
           height: u32, 
           camera: &PerspectiveCamera,
-          scene: &mut Scene) -> Vec<u8> {
+          scene: &mut Scene,
+          depth: isize) -> Vec<u8> {
     let mut colours = Vec::new();
     for y in 0..height {
         for x in 0..width {
             let ray = camera.ray_from(x, y);
-            let c = scene.trace(&ray);
+            let c = scene.trace(&ray, depth);
             // constrain rgb components to range [0, 255]
             colours.push(na::clamp(c.x * 255.0, 0.0, 255.0) as u8);
             colours.push(na::clamp(c.y * 255.0, 0.0, 255.0) as u8);
@@ -121,8 +123,8 @@ fn main() {
 
     // let mut world = BVT::new_balanced(spheres);
 
-    // let dir_light = Box::new(DirectionalLight::new(0.2, na::one(), Vec3::z()));
-    // lights.push(dir_light as Box<Light>);
+    let dir_light = Box::new(DirectionalLight::new(0.2, na::one(), Vec3::z()));
+    scene.add_light(dir_light as Box<Light>);
     let pnt_light_red = Box::new(PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 100.0));
     scene.add_light(pnt_light_red as Box<Light>);
     let pnt_light_green = Box::new(PointLight::new(1.0, Vec3::new(0.0, 1.0, 0.0), Pnt3::new(0.0, 5.0, 0.0), 50.0));
@@ -130,7 +132,8 @@ fn main() {
     let pnt_light_blue = Box::new(PointLight::new(1.0, Vec3::new(0.0, 0.0, 1.0), Pnt3::new(0.0, 0.0, 10.0), 40.0));
     scene.add_light(pnt_light_blue as Box<Light>);
 
-    let colours = render(width, height, &camera, &mut scene);
+    let depth = 2;
+    let colours = render(width, height, &camera, &mut scene, depth);
 
     let filename = matches.value_of("OUTPUT").unwrap_or("pbrt.png");
     let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");
