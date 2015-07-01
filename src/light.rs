@@ -5,11 +5,6 @@ use ncollide::ray::{Ray, LocalRayCast};
 
 use spectrum::{Spectrum};
 
-pub enum LightType {
-    Point,
-    Directional
-}
-
 pub trait Light {
     fn colour(&self) -> &Spectrum;
     /// Is the light visible from the point given a
@@ -18,7 +13,9 @@ pub trait Light {
     fn visible_from(&self, p: &Pnt3<f64>, spheres: &[Box<LocalRayCast<Pnt3<f64>>>]) -> bool;
 
     /// Sample the light given a point and its shading
-    /// normal in world space.
+    /// normal in world space, returning a Spectrum and
+    /// a normalized vector indicating the
+    /// incident light direction.
     fn sample(&self, p: &Pnt3<f64>) -> (Spectrum, Vec3<f64>);
 }
 

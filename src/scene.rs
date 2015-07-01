@@ -3,7 +3,7 @@ use na;
 use na::{Pnt3, Vec3};
 use ncollide::ray::{LocalRayCast, Ray};
 
-use light::{Light, LightType};
+use light::{Light};
 use spectrum::{Spectrum};
 use surface::{Diffuse, SurfaceIntegrator};
 
