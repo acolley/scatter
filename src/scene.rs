@@ -1,29 +1,49 @@
 
+use std::sync::Arc;
+
 use na;
-use na::{Pnt3, Vec3};
-use ncollide::ray::{LocalRayCast, Ray3};
+use na::{Iso3, Pnt3, Vec3};
+use ncollide::bounding_volume::{BoundingSphere3, HasBoundingSphere};
+use ncollide::partitioning::{DBVT};
+use ncollide::ray::{RayCast, Ray3, RayInterferencesCollector};
 
 use light::{Light};
 use spectrum::{Spectrum};
 use surface::{Diffuse, SurfaceIntegrator};
 
-pub struct SceneNode;
+pub struct SceneNode {
+    pub transform: Iso3<f64>,
+    pub geom: Box<RayCast<Pnt3<f64>, Iso3<f64>>>,
+    pub bsphere: BoundingSphere3<f64>
+}
+
+impl SceneNode {
+    pub fn new<N: 'static + RayCast<Pnt3<f64>, Iso3<f64>> + HasBoundingSphere<Pnt3<f64>, Iso3<f64>>>(
+        transform: Iso3<f64>,
+        geom: Box<N>) -> SceneNode {
+        SceneNode {
+            transform : transform,
+            bsphere : geom.bounding_sphere(&transform),
+            geom : geom as Box<RayCast<Pnt3<f64>, Iso3<f64>>>
+        }
+    }
+}
 
 pub struct Scene {
-    spheres: Vec<Box<LocalRayCast<Pnt3<f64>>>>,
-	lights: Vec<Box<Light>>
+	lights: Vec<Box<Light>>,
+    world: DBVT<Pnt3<f64>, Arc<SceneNode>, BoundingSphere3<f64>>
 }
 
 impl Scene {
     pub fn new() -> Scene {
         Scene {
-            spheres: Vec::new(),
-            lights: Vec::new()
+            lights: Vec::new(),
+            world: DBVT::new()
         }
     }
 
-    pub fn add_sphere(&mut self, sphere: Box<LocalRayCast<Pnt3<f64>>>) {
-        self.spheres.push(sphere);
+    pub fn add_node(&mut self, node: Arc<SceneNode>) {
+        self.world.insert_new(node.clone(), node.bsphere.clone());
     }
 
     pub fn add_light(&mut self, light: Box<Light>) {
@@ -33,8 +53,15 @@ impl Scene {
     pub fn trace(&mut self, ray: &Ray3<f64>, depth: isize) -> Spectrum {
         let surface = Diffuse;
         let mut colour: Spectrum = na::zero();
-        for sphere in self.spheres.iter_mut() {
-            match sphere.toi_and_normal_with_ray(ray, true) {
+        let mut intersections = Vec::new();
+        {
+            let mut visitor = RayInterferencesCollector::new(ray, &mut intersections);
+            self.world.visit(&mut visitor);
+        }
+
+        if intersections.len() > 0 {
+            let node = unsafe { intersections.get_unchecked(0) };
+            match node.geom.toi_and_normal_with_transform_and_ray(&node.transform, ray, true) {
                 Some(isect) => {
                     // TODO: this should really trace a ray from
                     // the point to the light to see if it visible

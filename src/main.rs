@@ -6,6 +6,7 @@ extern crate ncollide;
 
 use std::fs::{File};
 use std::path::{Path};
+use std::sync::Arc;
 
 use self::na::{Iso3, Pnt3, Vec3, Translate};
 use ncollide::shape::{Ball};
@@ -25,7 +26,7 @@ use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
 use light::{DirectionalLight, Light, PointLight};
 use material::{Material};
-use scene::{Scene};
+use scene::{Scene, SceneNode};
 use surface::{Diffuse, SurfaceIntegrator};
 
 struct Object {
@@ -34,33 +35,11 @@ struct Object {
     material: Material
 }
 
-struct Sphere {
-    ball: Ball<f64>,
-    transform: Iso3<f64>
-}
-
 /// This is required because the compiler cannot infer enough
 /// type information in order to resolve the method 'bounding_sphere'
 /// on types that implement HasBoundingSphere (including Ball).
 fn get_bounding_sphere<T: HasBoundingSphere<P, M>, P: Point, M: Translate<P>>(t: &T, m: &M) -> BoundingSphere<P> {
     t.bounding_sphere(m)
-}
-
-impl Sphere {
-    fn new(ball: Ball<f64>, transform: Iso3<f64>) -> Sphere {
-        Sphere {
-            ball : ball,
-            transform : transform
-        }
-    }
-
-    fn ball(&self) -> &Ball<f64> {
-        &self.ball
-    }
-
-    fn transform(&self) -> &Iso3<f64> {
-        &self.transform
-    }
 }
 
 fn render(width: u32, 
@@ -108,20 +87,10 @@ fn main() {
     let mut scene = Scene::new();
 
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
-    let sphere = Box::new(Sphere::new(Ball::new(1.0), na::one()));
-    let bounding_sphere = Box::new(get_bounding_sphere(sphere.ball(), &transform));
-    scene.add_sphere(bounding_sphere as Box<LocalRayCast<Pnt3<f64>>>);
+    scene.add_node(Arc::new(SceneNode::new(transform, Box::new(Ball::new(1.0)))));
 
     let transform = Iso3::new(Vec3::new(-4.0, 5.0, 15.0), na::zero());
-    let sphere = Box::new(Sphere::new(Ball::new(2.0), na::one()));
-    let bounding_sphere = Box::new(get_bounding_sphere(sphere.ball(), &transform));
-    scene.add_sphere(bounding_sphere as Box<LocalRayCast<Pnt3<f64>>>);
-
-    // let spheres = vec!(
-    //     (sphere, bounding_sphere)
-    // );
-
-    // let mut world = BVT::new_balanced(spheres);
+    scene.add_node(Arc::new(SceneNode::new(transform, Box::new(Ball::new(2.0)))));
 
     let dir_light = Box::new(DirectionalLight::new(0.2, na::one(), Vec3::z()));
     scene.add_light(dir_light as Box<Light>);
