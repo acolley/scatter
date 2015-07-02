@@ -49,7 +49,7 @@ impl SurfaceIntegrator for PerfectSpecular {
             let (li, wi) = light.sample(&p);
             // calculate reflection vector
             let ri = wi - *n * 2.0 * (na::dot(&wi, n));
-
+            
         }
         value
     }

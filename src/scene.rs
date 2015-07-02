@@ -1,11 +1,13 @@
 
 use na;
 use na::{Pnt3, Vec3};
-use ncollide::ray::{LocalRayCast, Ray};
+use ncollide::ray::{LocalRayCast, Ray3};
 
 use light::{Light};
 use spectrum::{Spectrum};
 use surface::{Diffuse, SurfaceIntegrator};
+
+pub struct SceneNode;
 
 pub struct Scene {
     spheres: Vec<Box<LocalRayCast<Pnt3<f64>>>>,
@@ -28,7 +30,7 @@ impl Scene {
         self.lights.push(light);
     }
 
-    pub fn trace(&mut self, ray: &Ray<Pnt3<f64>>, depth: isize) -> Spectrum {
+    pub fn trace(&mut self, ray: &Ray3<f64>, depth: isize) -> Spectrum {
         let surface = Diffuse;
         let mut colour: Spectrum = na::zero();
         for sphere in self.spheres.iter_mut() {
