@@ -1,8 +1,10 @@
 
 use na;
 use na::{Pnt3, Vec3};
+use ncollide::ray::{Ray3};
 
 use light::{Light};
+use scene::{Scene};
 use spectrum::{Spectrum};
 
 pub trait SurfaceIntegrator {
@@ -10,7 +12,8 @@ pub trait SurfaceIntegrator {
               p: &Pnt3<f64>, 
               n: &Vec3<f64>, 
               colour: &Spectrum, 
-              lights: &[Box<Light>]) -> Spectrum;
+              scene: &Scene,
+              depth: isize) -> Spectrum;
 }
 
 pub struct Diffuse;
@@ -20,10 +23,11 @@ impl SurfaceIntegrator for Diffuse {
               p: &Pnt3<f64>,
               n: &Vec3<f64>,
               colour: &Spectrum,
-              lights: &[Box<Light>]) -> Spectrum {
+              scene: &Scene,
+              depth: isize) -> Spectrum {
         // TODO: only pass in lights that are not obscured in the direction of the point?
         let mut value = na::zero();
-        for light in lights {
+        for light in &scene.lights {
             let (li, wi) = light.sample(&p);
             let dot: f64 = na::dot(n, &wi);
             if dot > 0.0 {
@@ -43,13 +47,18 @@ impl SurfaceIntegrator for PerfectSpecular {
               p: &Pnt3<f64>, 
               n: &Vec3<f64>, 
               colour: &Spectrum, 
-              lights: &[Box<Light>]) -> Spectrum {
+              scene: &Scene,
+              depth: isize) -> Spectrum {
+        if depth <= 0 {
+            return na::zero();
+        }
         let mut value = na::zero();
-        for light in lights {
+        for light in &scene.lights {
             let (li, wi) = light.sample(&p);
             // calculate reflection vector
             let ri = wi - *n * 2.0 * (na::dot(&wi, n));
-            
+            // let reflect_ray = Ray3::new
+            // scene.trace()
         }
         value
     }

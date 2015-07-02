@@ -30,7 +30,7 @@ impl SceneNode {
 }
 
 pub struct Scene {
-	lights: Vec<Box<Light>>,
+	pub lights: Vec<Box<Light>>,
     world: DBVT<Pnt3<f64>, Arc<SceneNode>, BoundingSphere3<f64>>
 }
 
@@ -83,7 +83,7 @@ impl Scene {
                     // let light_ray = light.
                     // TODO: incorporate colour from the object itself
                     // colour of object is set to all 1 for now
-                    let c = surface.sample(&p, &isect.normal, &na::one(), &self.lights);
+                    let c = surface.sample(&p, &isect.normal, &na::one(), self, depth);
                     colour = colour + c;
                 },
                 None => {}
