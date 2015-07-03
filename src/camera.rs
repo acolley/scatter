@@ -12,16 +12,21 @@ pub trait Camera {
 pub struct PerspectiveCamera {
     width: u32,
     height: u32,
-    iso: Iso3<f64>,
+    transform: Iso3<f64>,
     proj: PerspMat3<f64>
 }
 
 impl PerspectiveCamera {
-    pub fn new(width: u32, height: u32, fov: f64, znear: f64, zfar: f64) -> PerspectiveCamera {
+    pub fn new(transform: Iso3<f64>,
+               width: u32, 
+               height: u32, 
+               fov: f64, 
+               znear: f64, 
+               zfar: f64) -> PerspectiveCamera {
         PerspectiveCamera {
             width : width,
             height : height,
-            iso : na::one(),
+            transform : transform,
             proj : PerspMat3::new((width as f64) / (height as f64), fov, znear, zfar)
         }
     }
@@ -29,18 +34,18 @@ impl PerspectiveCamera {
 
 impl Camera for PerspectiveCamera {
     fn ray_from(&self, x: u32, y: u32) -> Ray3<f64> {
-        let viewproj = na::to_homogeneous(&self.iso) * na::inv(&self.proj.to_mat()).expect("Projection matrix is not invertible");
+        let viewproj = na::to_homogeneous(&self.transform) * na::inv(&self.proj.to_mat()).expect("Projection matrix is not invertible");
         let device_x = ((x as f64 / self.width as f64) - 0.5) * 2.0;
         let device_y = -((y as f64 / self.height as f64) - 0.5) * 2.0;
         let point = Pnt4::new(device_x, device_y, -1.0, 1.0);
         let h_eye = viewproj * point;
         let eye: Pnt3<f64> = na::from_homogeneous(&h_eye);
-        Ray3::new(self.iso.translation().to_pnt(), na::normalize(&(eye - self.iso.translation().to_pnt())))
+        Ray3::new(self.transform.translation().to_pnt(), na::normalize(&(eye - self.transform.translation().to_pnt())))
     }
 
     fn look_at_z(&mut self, at: &Pnt3<f64>, up: &Vec3<f64>) {
-        let mut iso = self.iso;
-        iso.look_at_z(&self.iso.translation().to_pnt(), at, up);
+        let mut transform = self.transform;
+        transform.look_at_z(&self.transform.translation().to_pnt(), at, up);
     }
 }
 

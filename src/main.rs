@@ -29,12 +29,6 @@ use material::{Material};
 use scene::{Scene, SceneNode};
 use surface::{Diffuse, PerfectSpecular, SurfaceIntegrator};
 
-struct Object {
-    mesh: Box<RayCast<Pnt3<f64>, Iso3<f64>>>,
-    transform: Iso3<f64>,
-    material: Material
-}
-
 /// This is required because the compiler cannot infer enough
 /// type information in order to resolve the method 'bounding_sphere'
 /// on types that implement HasBoundingSphere (including Ball).
@@ -81,7 +75,7 @@ fn main() {
     let width = matches.value_of("WIDTH").unwrap_or("100").parse::<u32>().ok().expect("Value for width is not a valid unsigned integer");
     let height = matches.value_of("HEIGHT").unwrap_or("100").parse::<u32>().ok().expect("Value for height is not a valid unsigned integer");
 
-    let mut camera = PerspectiveCamera::new(width, height, 45.0, 1.0, 100000.0);
+    let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, 0.0), na::zero()), width, height, 45.0, 1.0, 100000.0);
     camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
 
     let mut scene = Scene::new();
