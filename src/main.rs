@@ -27,7 +27,7 @@ use clap::{Arg, App};
 use light::{DirectionalLight, Light, PointLight};
 use material::{Material};
 use scene::{Scene, SceneNode};
-use surface::{Diffuse, SurfaceIntegrator};
+use surface::{Diffuse, PerfectSpecular, SurfaceIntegrator};
 
 struct Object {
     mesh: Box<RayCast<Pnt3<f64>, Iso3<f64>>>,
@@ -87,12 +87,26 @@ fn main() {
     let mut scene = Scene::new();
 
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
-    scene.add_node(Arc::new(SceneNode::new(transform, Box::new(Ball::new(1.0)))));
+    scene.add_node(Arc::new(SceneNode::new(transform, 
+                                           Box::new(Diffuse), 
+                                           Box::new(Ball::new(1.0)))));
 
-    let transform = Iso3::new(Vec3::new(-4.0, 5.0, 15.0), na::zero());
-    scene.add_node(Arc::new(SceneNode::new(transform, Box::new(Ball::new(2.0)))));
+    let transform = Iso3::new(Vec3::new(-4.0, 3.0, 10.0), na::zero());
+    scene.add_node(Arc::new(SceneNode::new(transform, 
+                                           Box::new(PerfectSpecular), 
+                                           Box::new(Ball::new(2.0)))));
 
-    let dir_light = Box::new(DirectionalLight::new(0.2, na::one(), Vec3::z()));
+    let transform = Iso3::new(Vec3::new(-1.0, -2.0, 5.0), na::zero());
+    scene.add_node(Arc::new(SceneNode::new(transform, 
+                                           Box::new(Diffuse), 
+                                           Box::new(Ball::new(1.0)))));
+
+    let transform = Iso3::new(Vec3::new(0.0, -100.0, 0.0), na::zero());
+    scene.add_node(Arc::new(SceneNode::new(transform,
+                                           Box::new(Diffuse),
+                                           Box::new(Ball::new(50.0)))));
+
+    let dir_light = Box::new(DirectionalLight::new(0.8, na::one(), -Vec3::y()));
     scene.add_light(dir_light as Box<Light>);
     let pnt_light_red = Box::new(PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 100.0));
     scene.add_light(pnt_light_red as Box<Light>);

@@ -1,6 +1,6 @@
 
 use na;
-use na::{Pnt3, Vec3};
+use na::{Norm, Pnt3, Vec3};
 use ncollide::ray::{Ray3};
 
 use light::{Light};
@@ -9,17 +9,19 @@ use spectrum::{Spectrum};
 
 pub trait SurfaceIntegrator {
 	fn sample(&self, 
-              p: &Pnt3<f64>, 
-              n: &Vec3<f64>, 
-              colour: &Spectrum, 
-              scene: &Scene,
-              depth: isize) -> Spectrum;
+            wi: &Vec3<f64>,
+            p: &Pnt3<f64>, 
+            n: &Vec3<f64>, 
+            colour: &Spectrum, 
+            scene: &Scene,
+            depth: isize) -> Spectrum;
 }
 
 pub struct Diffuse;
 
 impl SurfaceIntegrator for Diffuse {
     fn sample(&self, 
+              wi: &Vec3<f64>,
               p: &Pnt3<f64>,
               n: &Vec3<f64>,
               colour: &Spectrum,
@@ -43,23 +45,23 @@ pub struct PerfectSpecular;
 
 impl SurfaceIntegrator for PerfectSpecular {
     /// Simulate perfect specular reflection (i.e. a mirror)
-    fn sample(&self, 
+    fn sample(&self,
+              wi: &Vec3<f64>,
               p: &Pnt3<f64>, 
               n: &Vec3<f64>, 
-              colour: &Spectrum, 
+              colour: &Spectrum,
               scene: &Scene,
               depth: isize) -> Spectrum {
+        // given that we only have directional and point lights currently
+        // we do not sample those to obtain the light reflected at this point
+        // on the surface, purely light reflected from other surfaces is considered
         if depth <= 0 {
             return na::zero();
         }
-        let mut value = na::zero();
-        for light in &scene.lights {
-            let (li, wi) = light.sample(&p);
-            // calculate reflection vector
-            let ri = wi - *n * 2.0 * (na::dot(&wi, n));
-            // let reflect_ray = Ray3::new
-            // scene.trace()
-        }
-        value
+
+        let mut wo = *wi - *n * 2.0 * (na::dot(wi, n));
+        wo.normalize_mut();
+        let reflect_ray = Ray3::new(*p, wo);
+        scene.trace(&reflect_ray, depth - 1)
     }
 }

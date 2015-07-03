@@ -13,16 +13,19 @@ use surface::{Diffuse, SurfaceIntegrator};
 
 pub struct SceneNode {
     pub transform: Iso3<f64>,
+    pub surface: Box<SurfaceIntegrator>,
     pub geom: Box<RayCast<Pnt3<f64>, Iso3<f64>>>,
     pub bsphere: BoundingSphere3<f64>
 }
 
 impl SceneNode {
-    pub fn new<N: 'static + RayCast<Pnt3<f64>, Iso3<f64>> + HasBoundingSphere<Pnt3<f64>, Iso3<f64>>>(
+    pub fn new<S: 'static + SurfaceIntegrator, N: 'static + RayCast<Pnt3<f64>, Iso3<f64>> + HasBoundingSphere<Pnt3<f64>, Iso3<f64>>>(
         transform: Iso3<f64>,
+        surface: Box<S>,
         geom: Box<N>) -> SceneNode {
         SceneNode {
             transform : transform,
+            surface : surface as Box<SurfaceIntegrator>,
             bsphere : geom.bounding_sphere(&transform),
             geom : geom as Box<RayCast<Pnt3<f64>, Iso3<f64>>>
         }
@@ -51,7 +54,6 @@ impl Scene {
     }
 
     pub fn trace(&self, ray: &Ray3<f64>, depth: isize) -> Spectrum {
-        let surface = Diffuse;
         let mut colour: Spectrum = na::zero();
         let mut intersections = Vec::new();
         {
@@ -83,7 +85,12 @@ impl Scene {
                     // let light_ray = light.
                     // TODO: incorporate colour from the object itself
                     // colour of object is set to all 1 for now
-                    let c = surface.sample(&p, &isect.normal, &na::one(), self, depth);
+                    let c = node.surface.sample(&ray.dir,
+                                                &p, 
+                                                &isect.normal, 
+                                                &na::one(), 
+                                                self, 
+                                                depth);
                     colour = colour + c;
                 },
                 None => {}
