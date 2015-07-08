@@ -9,7 +9,7 @@ use ncollide::ray::{RayCast, Ray3, RayInterferencesCollector};
 
 use light::{Light};
 use spectrum::{Spectrum};
-use surface::{Diffuse, SurfaceIntegrator};
+use surface::{SurfaceIntegrator};
 
 pub struct SceneNode {
     pub transform: Iso3<f64>,

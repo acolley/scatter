@@ -8,13 +8,19 @@ use scene::{Scene};
 use spectrum::{Spectrum};
 
 pub trait SurfaceIntegrator {
-	fn sample(&self, 
-            wi: &Vec3<f64>,
-            p: &Pnt3<f64>, 
-            n: &Vec3<f64>, 
-            colour: &Spectrum, 
-            scene: &Scene,
-            depth: isize) -> Spectrum;
+    /// Sample the reflected light at a particular
+    /// point on a surface given the incident light
+    /// direction, the point, the normal, the colour
+    /// of the surface at that point and the scene
+    /// for tracing more rays through the scene if
+    /// required for reflected/transmitted rays.
+  	fn sample(&self, 
+              wi: &Vec3<f64>,
+              p: &Pnt3<f64>, 
+              n: &Vec3<f64>, 
+              colour: &Spectrum, 
+              scene: &Scene,
+              depth: isize) -> Spectrum;
 }
 
 pub struct Diffuse;
@@ -27,7 +33,9 @@ impl SurfaceIntegrator for Diffuse {
               colour: &Spectrum,
               scene: &Scene,
               depth: isize) -> Spectrum {
-        // TODO: only pass in lights that are not obscured in the direction of the point?
+        // TODO: only pass in lights that are not obscured in the direction of the point
+        // in order to simulate shadows. This should also cast ray differentials in order
+        // to sample enough of the image function to have smooth edges.
         let mut value = na::zero();
         for light in &scene.lights {
             let (li, wi) = light.sample(&p);
@@ -54,7 +62,7 @@ impl SurfaceIntegrator for PerfectSpecular {
               depth: isize) -> Spectrum {
         // given that we only have directional and point lights currently
         // we do not sample those to obtain the light reflected at this point
-        // on the surface, purely light reflected from other surfaces is considered
+        // on the surface, only light reflected from other surfaces is considered
         if depth <= 0 {
             return na::zero();
         }
@@ -63,5 +71,7 @@ impl SurfaceIntegrator for PerfectSpecular {
         wo.normalize_mut();
         let reflect_ray = Ray3::new(*p, wo);
         scene.trace(&reflect_ray, depth - 1)
+
+        // TODO: cast ray differentials for reflected rays
     }
 }

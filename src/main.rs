@@ -1,5 +1,6 @@
 extern crate clap;
 extern crate image;
+extern crate rand;
 #[macro_use(assert_approx_eq)]
 extern crate nalgebra as na;
 extern crate ncollide;
@@ -27,7 +28,7 @@ use clap::{Arg, App};
 use light::{DirectionalLight, Light, PointLight};
 use material::{Material};
 use scene::{Scene, SceneNode};
-use surface::{Diffuse, PerfectSpecular, SurfaceIntegrator};
+use surface::{Diffuse, PerfectSpecular};
 
 /// This is required because the compiler cannot infer enough
 /// type information in order to resolve the method 'bounding_sphere'
@@ -44,8 +45,25 @@ fn render(width: u32,
     let mut colours = Vec::new();
     for y in 0..height {
         for x in 0..width {
-            let ray = camera.ray_from(x, y);
+            let ray = camera.ray_from(x as f64, y as f64);
             let c = scene.trace(&ray, depth);
+
+            // TODO: make the sampling methods into their
+            // own trait/struct implementations for different
+            // types of samplers to be used interchangeably
+
+            // cast ray differentials to soften edges
+            // and reduce aliasing using random sampling
+            let dx = rand::random::<f64>() / 2.0 - 1.0;
+            let dy = rand::random::<f64>() / 2.0 - 1.0;
+            let ray1 = camera.ray_from((x as f64) + dx, (y as f64) + dy);
+            let c1 = scene.trace(&ray1, depth);
+            let dx = rand::random::<f64>() / 2.0 - 1.0;
+            let dy = rand::random::<f64>() / 2.0 - 1.0;
+            let ray2 = camera.ray_from((x as f64) + dx, (y as f64) + dy);
+            let c2 = scene.trace(&ray2, depth);
+            let c = c * 0.6 + c1 * 0.2 + c2 * 0.2;
+
             // constrain rgb components to range [0, 255]
             colours.push(na::clamp(c.x * 255.0, 0.0, 255.0) as u8);
             colours.push(na::clamp(c.y * 255.0, 0.0, 255.0) as u8);
