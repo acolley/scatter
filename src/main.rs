@@ -10,7 +10,7 @@ use std::path::{Path};
 use std::sync::Arc;
 
 use self::na::{Iso3, Pnt3, Vec3, Translate};
-use ncollide::shape::{Ball};
+use ncollide::shape::{Ball, Cuboid, Plane};
 use ncollide::ray::{LocalRayCast, Ray, RayCast, RayIntersection};
 use ncollide::math::{Point, Vect, Scalar};
 use ncollide::bounding_volume::{BoundingSphere, HasBoundingSphere};
@@ -54,12 +54,12 @@ fn render(width: u32,
 
             // cast ray differentials to soften edges
             // and reduce aliasing using random sampling
-            let dx = rand::random::<f64>() / 2.0 - 1.0;
-            let dy = rand::random::<f64>() / 2.0 - 1.0;
+            let dx = rand::random::<f64>() - 0.5;
+            let dy = rand::random::<f64>() - 0.5;
             let ray1 = camera.ray_from((x as f64) + dx, (y as f64) + dy);
             let c1 = scene.trace(&ray1, depth);
-            let dx = rand::random::<f64>() / 2.0 - 1.0;
-            let dy = rand::random::<f64>() / 2.0 - 1.0;
+            let dx = rand::random::<f64>() - 0.5;
+            let dy = rand::random::<f64>() - 0.5;
             let ray2 = camera.ray_from((x as f64) + dx, (y as f64) + dy);
             let c2 = scene.trace(&ray2, depth);
             let c = c * 0.6 + c1 * 0.2 + c2 * 0.2;
@@ -117,6 +117,11 @@ fn main() {
     scene.add_node(Arc::new(SceneNode::new(transform,
                                            Box::new(Diffuse),
                                            Box::new(Ball::new(50.0)))));
+
+    // let transform = Iso3::new(Vec3::new(0.0, -2.0, 0.0), na::zero());
+    // scene.add_node(Arc::new(SceneNode::new(transform,
+    //                                        Box::new(Diffuse),
+    //                                        Box::new(Cuboid::new(Vec3::new(100.0, 100.0, 0.1))))));
 
     let dir_light = Box::new(DirectionalLight::new(0.8, na::one(), -Vec3::y()));
     scene.add_light(dir_light as Box<Light>);
