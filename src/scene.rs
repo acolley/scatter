@@ -1,6 +1,7 @@
 
 use std;
 use std::sync::Arc;
+use uuid::Uuid;
 
 use na;
 use na::{Iso3, Pnt3, Vec3};
@@ -13,22 +14,27 @@ use spectrum::{Spectrum};
 use surface::{SurfaceIntegrator};
 
 pub struct SceneNode {
+    pub uuid: Uuid,
     pub transform: Iso3<f64>,
     pub surface: Box<SurfaceIntegrator>,
     pub geom: Box<RayCast<Pnt3<f64>, Iso3<f64>>>,
-    pub bsphere: BoundingSphere3<f64>
+    pub bsphere: BoundingSphere3<f64>,
+    pub solid: bool
 }
 
 impl SceneNode {
     pub fn new<S: 'static + SurfaceIntegrator, N: 'static + RayCast<Pnt3<f64>, Iso3<f64>> + HasBoundingSphere<Pnt3<f64>, Iso3<f64>>>(
         transform: Iso3<f64>,
         surface: Box<S>,
-        geom: Box<N>) -> SceneNode {
+        geom: Box<N>,
+        solid: bool) -> SceneNode {
         SceneNode {
+            uuid : Uuid::new_v4(),
             transform : transform,
             surface : surface as Box<SurfaceIntegrator>,
             bsphere : geom.bounding_sphere(&transform),
-            geom : geom as Box<RayCast<Pnt3<f64>, Iso3<f64>>>
+            geom : geom as Box<RayCast<Pnt3<f64>, Iso3<f64>>>,
+            solid : solid
         }
     }
 }
@@ -46,7 +52,7 @@ fn get_nearest<'a>(ray: &Ray3<f64>, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a 
     let mut nearest_toi = std::f64::MAX;
     let mut nearest_normal = na::zero();
     for node in nodes {
-        match node.geom.toi_and_normal_with_transform_and_ray(&node.transform, ray, true) {
+        match node.geom.toi_and_normal_with_transform_and_ray(&node.transform, ray, node.solid) {
             Some(isect) => {
                 if isect.toi < nearest_toi {
                     nearest_node = Some(node);
@@ -87,7 +93,6 @@ impl Scene {
             let mut visitor = RayInterferencesCollector::new(ray, &mut intersections);
             self.world.visit(&mut visitor);
         }
-
 
         // cast a ray towards the light to see if this point
         // should receive any luminance from it

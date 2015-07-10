@@ -1,6 +1,7 @@
 extern crate clap;
 extern crate image;
 extern crate rand;
+extern crate uuid;
 #[macro_use(assert_approx_eq)]
 extern crate nalgebra as na;
 extern crate ncollide;
@@ -101,27 +102,32 @@ fn main() {
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
                                            Box::new(Diffuse), 
-                                           Box::new(Ball::new(1.0)))));
+                                           Box::new(Ball::new(1.0)),
+                                           true)));
 
     let transform = Iso3::new(Vec3::new(-4.0, 3.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
                                            Box::new(PerfectSpecular), 
-                                           Box::new(Ball::new(2.0)))));
+                                           Box::new(Ball::new(2.0)),
+                                           true)));
 
     let transform = Iso3::new(Vec3::new(-1.0, -2.0, 5.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
                                            Box::new(Diffuse), 
-                                           Box::new(Ball::new(1.0)))));
+                                           Box::new(Ball::new(1.0)),
+                                           true)));
 
     let transform = Iso3::new(Vec3::new(0.0, -100.0, 0.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
                                            Box::new(Diffuse),
-                                           Box::new(Ball::new(50.0)))));
+                                           Box::new(Ball::new(50.0)),
+                                           true)));
 
-    // let transform = Iso3::new(Vec3::new(0.0, -2.0, 0.0), na::zero());
-    // scene.add_node(Arc::new(SceneNode::new(transform,
-    //                                        Box::new(Diffuse),
-    //                                        Box::new(Cuboid::new(Vec3::new(100.0, 100.0, 0.1))))));
+    let transform = Iso3::new(Vec3::new(0.0, -3.0, 10.0), na::zero());
+    scene.add_node(Arc::new(SceneNode::new(transform,
+                                           Box::new(Diffuse),
+                                           Box::new(Cuboid::new(Vec3::new(10.0, 0.1, 10.0))),
+                                           false)));
 
     let dir_light = Box::new(DirectionalLight::new(0.8, na::one(), -Vec3::y()));
     scene.add_light(dir_light as Box<Light>);
