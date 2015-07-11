@@ -5,9 +5,9 @@ use uuid::Uuid;
 
 use na;
 use na::{Iso3, Pnt3, Vec3};
-use ncollide::bounding_volume::{BoundingSphere3, HasBoundingSphere};
+use ncollide::bounding_volume::{AABB3, HasAABB};
 use ncollide::partitioning::{DBVT};
-use ncollide::ray::{RayCast, Ray3, RayIntersection, RayInterferencesCollector};
+use ncollide::ray::{RayCast, Ray3, RayInterferencesCollector};
 
 use light::{Light};
 use spectrum::{Spectrum};
@@ -18,12 +18,12 @@ pub struct SceneNode {
     pub transform: Iso3<f64>,
     pub surface: Box<SurfaceIntegrator>,
     pub geom: Box<RayCast<Pnt3<f64>, Iso3<f64>>>,
-    pub bsphere: BoundingSphere3<f64>,
+    pub aabb: AABB3<f64>,
     pub solid: bool
 }
 
 impl SceneNode {
-    pub fn new<S: 'static + SurfaceIntegrator, N: 'static + RayCast<Pnt3<f64>, Iso3<f64>> + HasBoundingSphere<Pnt3<f64>, Iso3<f64>>>(
+    pub fn new<S: 'static + SurfaceIntegrator, N: 'static + RayCast<Pnt3<f64>, Iso3<f64>> + HasAABB<Pnt3<f64>, Iso3<f64>>>(
         transform: Iso3<f64>,
         surface: Box<S>,
         geom: Box<N>,
@@ -32,7 +32,7 @@ impl SceneNode {
             uuid : Uuid::new_v4(),
             transform : transform,
             surface : surface as Box<SurfaceIntegrator>,
-            bsphere : geom.bounding_sphere(&transform),
+            aabb : geom.aabb(&transform),
             geom : geom as Box<RayCast<Pnt3<f64>, Iso3<f64>>>,
             solid : solid
         }
@@ -41,10 +41,10 @@ impl SceneNode {
 
 pub struct Scene {
 	pub lights: Vec<Box<Light>>,
-    world: DBVT<Pnt3<f64>, Arc<SceneNode>, BoundingSphere3<f64>>
+    world: DBVT<Pnt3<f64>, Arc<SceneNode>, AABB3<f64>>
 }
 
-/// Get the nearest node and surface info of the intersection
+/// Get the nearest node and surface info at the intersection
 /// point intersected by the given ray.
 fn get_nearest<'a>(ray: &Ray3<f64>, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneNode, f64, Vec3<f64>)> {
     // TODO: ability to ignore intersections with certain SceneNodes
@@ -79,7 +79,7 @@ impl Scene {
     }
 
     pub fn add_node(&mut self, node: Arc<SceneNode>) {
-        self.world.insert_new(node.clone(), node.bsphere.clone());
+        self.world.insert_new(node.clone(), node.aabb.clone());
     }
 
     pub fn add_light(&mut self, light: Box<Light>) {

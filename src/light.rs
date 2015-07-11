@@ -1,16 +1,11 @@
 
 use na;
-use na::{ApproxEq, Norm, Pnt3, Vec3};
-use ncollide::ray::{Ray, LocalRayCast};
+use na::{Norm, Pnt3, Vec3};
 
 use spectrum::{Spectrum};
 
 pub trait Light {
     fn colour(&self) -> &Spectrum;
-    /// Is the light visible from the point given a
-    /// slice of ray castable objects that will be
-    /// tested for intersection?
-    fn visible_from(&self, p: &Pnt3<f64>, spheres: &[Box<LocalRayCast<Pnt3<f64>>>]) -> bool;
 
     /// Sample the light given a point and its shading
     /// normal in world space, returning a Spectrum and
@@ -39,18 +34,6 @@ impl PointLight {
 
 impl Light for PointLight {
     fn colour(&self) -> &Spectrum { &self.colour }
-
-    fn visible_from(&self, p: &Pnt3<f64>, spheres: &[Box<LocalRayCast<Pnt3<f64>>>]) -> bool {
-        let mut dir = self.position - *p;
-        dir.normalize_mut();
-        let ray = Ray::new(*p, dir);
-        for sphere in spheres {
-            if sphere.intersects_ray(&ray) {
-                return false;
-            }
-        }
-        true
-    }
 
     /// Give the amount of incident light at a particular
     /// point in the scene.
@@ -87,11 +70,7 @@ impl DirectionalLight {
 impl Light for DirectionalLight {
     fn colour(&self) -> &Spectrum { &self.colour }
 
-    fn visible_from(&self, p: &Pnt3<f64>, spheres: &[Box<LocalRayCast<Pnt3<f64>>>]) -> bool {
-        true
-    }
-
-    fn sample(&self, p: &Pnt3<f64>) -> (Spectrum, Vec3<f64>) {
+    fn sample(&self, _: &Pnt3<f64>) -> (Spectrum, Vec3<f64>) {
         (self.colour * self.intensity, -self.direction)
     }
 }

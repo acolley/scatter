@@ -1,7 +1,6 @@
 extern crate nalgebra as na;
 
-use self::na::{Iso3, Norm, OrthoMat3, PerspMat3, Pnt3, Pnt4, Translation, Vec3};
-use ncollide::math::{Point, Scalar, Vect};
+use self::na::{Iso3, OrthoMat3, PerspMat3, Pnt3, Pnt4, Translation, Vec3};
 use ncollide::ray::{Ray3};
 
 pub trait Camera {

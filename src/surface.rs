@@ -27,12 +27,12 @@ pub struct Diffuse;
 
 impl SurfaceIntegrator for Diffuse {
     fn sample(&self, 
-              wi: &Vec3<f64>,
+              _: &Vec3<f64>,
               p: &Pnt3<f64>,
               n: &Vec3<f64>,
               colour: &Spectrum,
               scene: &Scene,
-              depth: isize) -> Spectrum {
+              _: isize) -> Spectrum {
         // TODO: only pass in lights that are not obscured in the direction of the point
         // in order to simulate shadows. This should also cast ray differentials in order
         // to sample enough of the image function to have smooth edges.

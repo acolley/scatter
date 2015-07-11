@@ -11,11 +11,9 @@ use std::path::{Path};
 use std::sync::Arc;
 
 use self::na::{Iso3, Pnt3, Vec3, Translate};
-use ncollide::shape::{Ball, Cuboid, Plane};
-use ncollide::ray::{LocalRayCast, Ray, RayCast, RayIntersection};
-use ncollide::math::{Point, Vect, Scalar};
+use ncollide::shape::{Ball, Cuboid};
+use ncollide::math::{Point};
 use ncollide::bounding_volume::{BoundingSphere, HasBoundingSphere};
-use ncollide::partitioning::BVT;
 
 mod camera;
 mod light;
@@ -27,7 +25,6 @@ mod surface;
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
 use light::{DirectionalLight, Light, PointLight};
-use material::{Material};
 use scene::{Scene, SceneNode};
 use surface::{Diffuse, PerfectSpecular};
 
@@ -40,31 +37,25 @@ fn get_bounding_sphere<T: HasBoundingSphere<P, M>, P: Point, M: Translate<P>>(t:
 
 fn render(width: u32, 
           height: u32, 
+          samples_per_pixel: u32,
           camera: &PerspectiveCamera,
           scene: &mut Scene,
           depth: isize) -> Vec<u8> {
     let mut colours = Vec::new();
     for y in 0..height {
         for x in 0..width {
-            let ray = camera.ray_from(x as f64, y as f64);
-            let c = scene.trace(&ray, depth);
+            let mut c: Vec3<f64> = na::zero();
+            for _ in 0..samples_per_pixel {
+                // TODO: make the sampling methods into their
+                // own trait/struct implementations for different
+                // types of samplers to be used interchangeably
+                let dx = rand::random::<f64>() - 0.5;
+                let dy = rand::random::<f64>() - 0.5;
 
-            // TODO: make the sampling methods into their
-            // own trait/struct implementations for different
-            // types of samplers to be used interchangeably
-
-            // cast ray differentials to soften edges
-            // and reduce aliasing using random sampling
-            let dx = rand::random::<f64>() - 0.5;
-            let dy = rand::random::<f64>() - 0.5;
-            let ray1 = camera.ray_from((x as f64) + dx, (y as f64) + dy);
-            let c1 = scene.trace(&ray1, depth);
-            let dx = rand::random::<f64>() - 0.5;
-            let dy = rand::random::<f64>() - 0.5;
-            let ray2 = camera.ray_from((x as f64) + dx, (y as f64) + dy);
-            let c2 = scene.trace(&ray2, depth);
-            let c = c * 0.6 + c1 * 0.2 + c2 * 0.2;
-
+                let ray = camera.ray_from((x as f64) + dx, (y as f64) + dy);
+                c = c + scene.trace(&ray, depth);
+            }
+            c = c / (samples_per_pixel as f64);
             // constrain rgb components to range [0, 255]
             colours.push(na::clamp(c.x * 255.0, 0.0, 255.0) as u8);
             colours.push(na::clamp(c.y * 255.0, 0.0, 255.0) as u8);
@@ -126,10 +117,10 @@ fn main() {
     let transform = Iso3::new(Vec3::new(0.0, -3.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
                                            Box::new(Diffuse),
-                                           Box::new(Cuboid::new(Vec3::new(10.0, 0.1, 10.0))),
+                                           Box::new(Cuboid::new(Vec3::new(50.0, 0.1, 50.0))),
                                            false)));
 
-    let dir_light = Box::new(DirectionalLight::new(0.8, na::one(), -Vec3::y()));
+    let dir_light = Box::new(DirectionalLight::new(0.6, na::one(), -Vec3::y()));
     scene.add_light(dir_light as Box<Light>);
     let pnt_light_red = Box::new(PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 100.0));
     scene.add_light(pnt_light_red as Box<Light>);
@@ -139,7 +130,7 @@ fn main() {
     scene.add_light(pnt_light_blue as Box<Light>);
 
     let depth = 2;
-    let colours = render(width, height, &camera, &mut scene, depth);
+    let colours = render(width, height, 3, &camera, &mut scene, depth);
 
     let filename = matches.value_of("OUTPUT").unwrap_or("pbrt.png");
     let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");
