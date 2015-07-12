@@ -6,6 +6,7 @@ extern crate uuid;
 extern crate nalgebra as na;
 extern crate ncollide;
 
+use std::f64::consts;
 use std::fs::{File};
 use std::path::{Path};
 use std::sync::Arc;
@@ -125,16 +126,16 @@ fn main() {
                                            Box::new(Ball::new(2.0)),
                                            true)));
 
+    let transform = Iso3::new(Vec3::new(-0.5, -1.0, 7.0), Vec3::new(0.0, 0.0, consts::PI / 4.0));
+    scene.add_node(Arc::new(SceneNode::new(transform,
+                                           Box::new(PerfectSpecular),
+                                           Box::new(Cuboid::new(Vec3::new(0.5, 0.5, 0.5))),
+                                           true)));
+
     let transform = Iso3::new(Vec3::new(-1.0, -2.0, 5.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
                                            Box::new(Diffuse), 
                                            Box::new(Ball::new(1.0)),
-                                           true)));
-
-    let transform = Iso3::new(Vec3::new(0.0, -100.0, 0.0), na::zero());
-    scene.add_node(Arc::new(SceneNode::new(transform,
-                                           Box::new(Diffuse),
-                                           Box::new(Ball::new(50.0)),
                                            true)));
 
     let transform = Iso3::new(Vec3::new(0.0, -3.0, 10.0), na::zero());
