@@ -86,7 +86,7 @@ impl Scene {
         self.lights.push(light);
     }
 
-    pub fn trace(&self, ray: &Ray3<f64>, depth: isize) -> Spectrum {
+    pub fn trace(&self, ray: &Ray3<f64>, depth: u32) -> Spectrum {
         let mut colour: Spectrum = na::zero();
         let mut intersections = Vec::new();
         {

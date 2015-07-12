@@ -20,7 +20,7 @@ pub trait SurfaceIntegrator {
               n: &Vec3<f64>, 
               colour: &Spectrum, 
               scene: &Scene,
-              depth: isize) -> Spectrum;
+              depth: u32) -> Spectrum;
 }
 
 pub struct Diffuse;
@@ -32,7 +32,7 @@ impl SurfaceIntegrator for Diffuse {
               n: &Vec3<f64>,
               colour: &Spectrum,
               scene: &Scene,
-              _: isize) -> Spectrum {
+              _: u32) -> Spectrum {
         // TODO: only pass in lights that are not obscured in the direction of the point
         // in order to simulate shadows. This should also cast ray differentials in order
         // to sample enough of the image function to have smooth edges.
@@ -59,7 +59,7 @@ impl SurfaceIntegrator for PerfectSpecular {
               n: &Vec3<f64>, 
               colour: &Spectrum,
               scene: &Scene,
-              depth: isize) -> Spectrum {
+              depth: u32) -> Spectrum {
         // given that we only have directional and point lights currently
         // we do not sample those to obtain the light reflected at this point
         // on the surface, only light reflected from other surfaces is considered
