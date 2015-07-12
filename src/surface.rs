@@ -34,8 +34,7 @@ impl SurfaceIntegrator for Diffuse {
               scene: &Scene,
               _: u32) -> Spectrum {
         // TODO: only pass in lights that are not obscured in the direction of the point
-        // in order to simulate shadows. This should also cast ray differentials in order
-        // to sample enough of the image function to have smooth edges.
+        // in order to simulate shadows. This should also cast ray differentials?
         let mut value = na::zero();
         for light in &scene.lights {
             let (li, wi) = light.sample(&p);

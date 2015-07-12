@@ -54,7 +54,10 @@ fn get_nearest<'a>(ray: &Ray3<f64>, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a 
     for node in nodes {
         match node.geom.toi_and_normal_with_transform_and_ray(&node.transform, ray, node.solid) {
             Some(isect) => {
-                if isect.toi < nearest_toi {
+                // check toi is greater than zero to rule out intersection
+                // with the node whose surface we're casting a ray from
+                // Note: this is not 100% reliable I don't think
+                if isect.toi > 0.0 && isect.toi < nearest_toi {
                     nearest_node = Some(node);
                     nearest_toi = isect.toi;
                     nearest_normal = isect.normal;
