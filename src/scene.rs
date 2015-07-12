@@ -90,6 +90,9 @@ impl Scene {
         let mut colour: Spectrum = na::zero();
         let mut intersections = Vec::new();
         {
+            // we define a scope here so that visitor (which takes a mutable
+            // borrow of the intersections vector) is dropped before we need
+            // to take another borrow of the intersections vector later on
             let mut visitor = RayInterferencesCollector::new(ray, &mut intersections);
             self.world.visit(&mut visitor);
         }
@@ -118,7 +121,7 @@ impl Scene {
                 let c = node.surface.sample(&ray.dir,
                                             &p,
                                             &normal,
-                                            &na::one(),
+                                            &na::one(), // surface colour of 1 for now
                                             self,
                                             depth);
                 colour = colour + c;
