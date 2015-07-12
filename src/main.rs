@@ -35,6 +35,15 @@ fn get_bounding_sphere<T: HasBoundingSphere<P, M>, P: Point, M: Translate<P>>(t:
     t.bounding_sphere(m)
 }
 
+fn sample(x: f64,
+          y: f64,
+          camera: &PerspectiveCamera,
+          scene: &mut Scene,
+          depth: u32) -> Vec3<f64> {
+    let ray = camera.ray_from(x, y);
+    scene.trace(&ray, depth)
+}
+
 fn render(width: u32, 
           height: u32, 
           samples_per_pixel: u32,
@@ -45,15 +54,18 @@ fn render(width: u32,
     for y in 0..height {
         for x in 0..width {
             let mut c: Vec3<f64> = na::zero();
-            for _ in 0..samples_per_pixel {
-                // TODO: make the sampling methods into their
-                // own trait/struct implementations for different
-                // types of samplers to be used interchangeably
-                let dx = rand::random::<f64>() - 0.5;
-                let dy = rand::random::<f64>() - 0.5;
+            if samples_per_pixel == 1 {
+                c = sample(x as f64, y as f64, camera, scene, depth);
+            } else {
+                for _ in 0..samples_per_pixel {
+                    // TODO: make the sampling methods into their
+                    // own trait/struct implementations for different
+                    // types of samplers to be used interchangeably
+                    let dx = rand::random::<f64>() - 0.5;
+                    let dy = rand::random::<f64>() - 0.5;
 
-                let ray = camera.ray_from((x as f64) + dx, (y as f64) + dy);
-                c = c + scene.trace(&ray, depth);
+                    c = c + sample((x as f64) + dx, (y as f64) + dy, camera, scene, depth);
+                }
             }
             c = c / (samples_per_pixel as f64);
             // constrain rgb components to range [0, 255]
@@ -93,6 +105,7 @@ fn main() {
     let width = matches.value_of("WIDTH").unwrap_or("100").parse::<u32>().ok().expect("Value for width is not a valid unsigned integer");
     let height = matches.value_of("HEIGHT").unwrap_or("100").parse::<u32>().ok().expect("Value for height is not a valid unsigned integer");
     let samples = matches.value_of("SAMPLES").unwrap_or("3").parse::<u32>().ok().expect("Value for samples is not a valid unsigned integer");
+    assert!(samples > 0);
     let depth = matches.value_of("DEPTH").unwrap_or("2").parse::<u32>().ok().expect("Value for depth is not a valid unsigned integer");
 
     let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, 0.0), na::zero()), width, height, 45.0, 1.0, 100000.0);

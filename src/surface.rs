@@ -66,7 +66,8 @@ impl SurfaceIntegrator for PerfectSpecular {
         if depth <= 0 {
             return na::zero();
         }
-
+        // TODO: attenuate amount of light energy
+        // that is reflected from the surface
         let mut wo = *wi - *n * 2.0 * (na::dot(wi, n));
         wo.normalize_mut();
         let reflect_ray = Ray3::new(*p, wo);

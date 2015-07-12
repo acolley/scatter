@@ -118,6 +118,8 @@ impl Scene {
                 // let light_ray = light.
                 // TODO: incorporate colour from the object itself
                 // colour of object is set to all 1 for now
+                // TODO: attenuate amount of light energy
+                // reflected from the surface
                 let c = node.surface.sample(&ray.dir,
                                             &p,
                                             &normal,
