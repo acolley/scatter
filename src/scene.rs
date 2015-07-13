@@ -52,7 +52,7 @@ fn get_nearest<'a>(ray: &Ray3<f64>, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a 
     let mut nearest_toi = std::f64::MAX;
     let mut nearest_normal = na::zero();
     for node in nodes {
-        match node.geom.toi_and_normal_with_transform_and_ray(&node.transform, ray, node.solid) {
+        match node.geom.toi_and_normal_with_transform_and_ray(&node.transform, ray, true) {
             Some(isect) => {
                 // check toi is greater than zero to rule out intersection
                 // with the node whose surface we're casting a ray from
