@@ -12,29 +12,30 @@ use ncollide::ray::{RayCast, Ray3, RayInterferencesCollector};
 use light::{Light};
 use spectrum::{Spectrum};
 use surface::{SurfaceIntegrator};
+use texture::{Texture};
 
 pub struct SceneNode {
     pub uuid: Uuid,
     pub transform: Iso3<f64>,
     pub surface: Box<SurfaceIntegrator>,
+    pub texture: Box<Texture>,
     pub geom: Box<RayCast<Pnt3<f64>, Iso3<f64>>>,
-    pub aabb: AABB3<f64>,
-    pub solid: bool
+    pub aabb: AABB3<f64>
 }
 
 impl SceneNode {
-    pub fn new<S: 'static + SurfaceIntegrator, N: 'static + RayCast<Pnt3<f64>, Iso3<f64>> + HasAABB<Pnt3<f64>, Iso3<f64>>>(
+    pub fn new<S: 'static + SurfaceIntegrator, T: 'static + Texture, N: 'static + RayCast<Pnt3<f64>, Iso3<f64>> + HasAABB<Pnt3<f64>, Iso3<f64>>>(
         transform: Iso3<f64>,
         surface: Box<S>,
-        geom: Box<N>,
-        solid: bool) -> SceneNode {
+        texture: Box<T>,
+        geom: Box<N>) -> SceneNode {
         SceneNode {
             uuid : Uuid::new_v4(),
             transform : transform,
             surface : surface as Box<SurfaceIntegrator>,
+            texture : texture as Box<Texture>,
             aabb : geom.aabb(&transform),
-            geom : geom as Box<RayCast<Pnt3<f64>, Iso3<f64>>>,
-            solid : solid
+            geom : geom as Box<RayCast<Pnt3<f64>, Iso3<f64>>>
         }
     }
 }
@@ -126,7 +127,7 @@ impl Scene {
                 let c = node.surface.sample(&ray.dir,
                                             &p,
                                             &normal,
-                                            &na::one(), // surface colour of 1 for now
+                                            &node.texture.sample(0.0, 0.0), // TODO: get uv coords for this
                                             self,
                                             depth);
                 colour = colour + c;

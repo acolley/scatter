@@ -22,12 +22,14 @@ mod material;
 mod scene;
 mod spectrum;
 mod surface;
+mod texture;
 
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
 use light::{DirectionalLight, Light, PointLight};
 use scene::{Scene, SceneNode};
 use surface::{Diffuse, PerfectSpecular};
+use texture::{ConstantTexture};
 
 /// This is required because the compiler cannot infer enough
 /// type information in order to resolve the method 'bounding_sphere'
@@ -117,63 +119,63 @@ fn main() {
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
                                            Box::new(Diffuse), 
-                                           Box::new(Ball::new(1.0)),
-                                           true)));
+                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 0.5))),
+                                           Box::new(Ball::new(1.0)))));
 
     let transform = Iso3::new(Vec3::new(-4.0, 3.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
                                            Box::new(PerfectSpecular), 
-                                           Box::new(Ball::new(2.0)),
-                                           true)));
+                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 0.5))),
+                                           Box::new(Ball::new(2.0)))));
 
     let transform = Iso3::new(Vec3::new(-0.5, -1.0, 7.0), Vec3::new(0.0, 0.0, consts::PI / 4.0));
     scene.add_node(Arc::new(SceneNode::new(transform,
                                            Box::new(PerfectSpecular),
-                                           Box::new(Cuboid::new(Vec3::new(0.5, 0.5, 0.5))),
-                                           true)));
+                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 0.5))),
+                                           Box::new(Cuboid::new(Vec3::new(0.5, 0.5, 0.5))))));
 
     let transform = Iso3::new(Vec3::new(-1.0, -2.0, 5.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
                                            Box::new(Diffuse), 
-                                           Box::new(Ball::new(1.0)),
-                                           true)));
+                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 0.5))),
+                                           Box::new(Ball::new(1.0)))));
 
     // floor
     let transform = Iso3::new(Vec3::new(0.0, -3.0, 0.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
                                            Box::new(Diffuse),
-                                           Box::new(Cuboid::new(Vec3::new(50.0, 0.1, 50.0))),
-                                           true)));
+                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 1.0))),
+                                           Box::new(Cuboid::new(Vec3::new(50.0, 0.1, 50.0))))));
     // ceiling
     let transform = Iso3::new(Vec3::new(0.0, 47.0, 0.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
                                            Box::new(Diffuse),
-                                           Box::new(Cuboid::new(Vec3::new(50.0, 0.1, 50.0))),
-                                           true)));
+                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 1.0))),
+                                           Box::new(Cuboid::new(Vec3::new(50.0, 0.1, 50.0))))));
     // front
     let transform = Iso3::new(Vec3::new(0.0, -3.0, 50.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
                                            Box::new(Diffuse),
-                                           Box::new(Cuboid::new(Vec3::new(50.0, 50.0, 0.1))),
-                                           true)));
+                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 1.0))),
+                                           Box::new(Cuboid::new(Vec3::new(50.0, 50.0, 0.1))))));
     // back
     let transform = Iso3::new(Vec3::new(0.0, -3.0, -50.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
                                            Box::new(Diffuse),
-                                           Box::new(Cuboid::new(Vec3::new(50.0, 50.0, 0.1))),
-                                           true)));
+                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 1.0))),
+                                           Box::new(Cuboid::new(Vec3::new(50.0, 50.0, 0.1))))));
     // left
     let transform = Iso3::new(Vec3::new(50.0, -3.0, 0.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
                                            Box::new(Diffuse),
-                                           Box::new(Cuboid::new(Vec3::new(0.1, 50.0, 50.0))),
-                                           true)));
+                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 1.0))),
+                                           Box::new(Cuboid::new(Vec3::new(0.1, 50.0, 50.0))))));
     // right
     let transform = Iso3::new(Vec3::new(-50.0, -3.0, 0.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
                                            Box::new(Diffuse),
-                                           Box::new(Cuboid::new(Vec3::new(0.1, 50.0, 50.0))),
-                                           true)));
+                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 1.0))),
+                                           Box::new(Cuboid::new(Vec3::new(0.1, 50.0, 50.0))))));
 
 
     // let dir_light = Box::new(DirectionalLight::new(0.6, na::one(), -Vec3::y()));
@@ -184,7 +186,7 @@ fn main() {
     scene.add_light(pnt_light_green as Box<Light>);
     let pnt_light_blue = Box::new(PointLight::new(1.0, Vec3::new(0.0, 0.0, 1.0), Pnt3::new(0.0, 0.0, 10.0), 500.0));
     scene.add_light(pnt_light_blue as Box<Light>);
-    let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(0.0, 25.0, 0.0), 500.0));
+    let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(0.0, 25.0, -40.0), 100.0));
     scene.add_light(pnt_light_white as Box<Light>);
 
     let colours = render(width, height, samples, &camera, &mut scene, depth);
