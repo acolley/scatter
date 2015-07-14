@@ -4,7 +4,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use na;
-use na::{Iso3, Pnt3, Vec3};
+use na::{Iso3, Pnt2, Pnt3, Vec3};
 use ncollide::bounding_volume::{AABB3, HasAABB};
 use ncollide::partitioning::{DBVT};
 use ncollide::ray::{RayCast, Ray3, RayInterferencesCollector};
@@ -47,13 +47,14 @@ pub struct Scene {
 
 /// Get the nearest node and surface info at the intersection
 /// point intersected by the given ray.
-fn get_nearest<'a>(ray: &Ray3<f64>, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneNode, f64, Vec3<f64>)> {
+fn get_nearest<'a>(ray: &Ray3<f64>, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneNode, f64, Vec3<f64>, Pnt2<f64>)> {
     // TODO: ability to ignore intersections with certain SceneNodes
     let mut nearest_node: Option<&SceneNode> = None;
     let mut nearest_toi = std::f64::MAX;
     let mut nearest_normal = na::zero();
+    let mut nearest_uvs = Pnt2::new(0.0, 0.0);
     for node in nodes {
-        match node.geom.toi_and_normal_with_transform_and_ray(&node.transform, ray, true) {
+        match node.geom.toi_and_normal_and_uv_with_transform_and_ray(&node.transform, ray, true) {
             Some(isect) => {
                 // check toi is greater than zero to rule out intersection
                 // with the node whose surface we're casting a ray from
@@ -62,13 +63,15 @@ fn get_nearest<'a>(ray: &Ray3<f64>, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a 
                     nearest_node = Some(node);
                     nearest_toi = isect.toi;
                     nearest_normal = isect.normal;
+                    // TODO: handle the case where uvs are not present
+                    nearest_uvs = isect.uvs.unwrap();
                 }
             },
             _ => {}
         }
     }
     if nearest_node.is_some() {
-        Some((nearest_node.unwrap(), nearest_toi, nearest_normal))
+        Some((nearest_node.unwrap(), nearest_toi, nearest_normal, nearest_uvs))
     } else {
         None
     }
@@ -111,7 +114,7 @@ impl Scene {
         // won't be as much of an issue along with using
         // ray differentials
         match get_nearest(ray, &intersections) {
-            Some((ref node, toi, normal)) => {
+            Some((ref node, toi, normal, uvs)) => {
                 // TODO: this should really trace a ray from
                 // the point to the light to see if it visible
                 // from the light and that there is no object
@@ -127,7 +130,7 @@ impl Scene {
                 let c = node.surface.sample(&ray.dir,
                                             &p,
                                             &normal,
-                                            &node.texture.sample(0.0, 0.0), // TODO: get uv coords for this
+                                            &node.texture.sample(uvs.x, uvs.y), // TODO: get uv coords for this
                                             self,
                                             depth);
                 colour = colour + c;

@@ -29,7 +29,7 @@ use clap::{Arg, App};
 use light::{DirectionalLight, Light, PointLight};
 use scene::{Scene, SceneNode};
 use surface::{Diffuse, PerfectSpecular};
-use texture::{ConstantTexture};
+use texture::{ConstantTexture, ImageTexture};
 
 /// This is required because the compiler cannot infer enough
 /// type information in order to resolve the method 'bounding_sphere'
@@ -114,6 +114,8 @@ fn main() {
     let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, 0.0), na::zero()), width, height, 45.0, 1.0, 100000.0);
     camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
 
+    let teximg = image::open(&Path::new("src/checker_huge.gif")).unwrap().to_rgb();
+
     let mut scene = Scene::new();
 
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
@@ -137,7 +139,7 @@ fn main() {
     let transform = Iso3::new(Vec3::new(-1.0, -2.0, 5.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
                                            Box::new(Diffuse), 
-                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 0.5))),
+                                           Box::new(ImageTexture::new(teximg)),
                                            Box::new(Ball::new(1.0)))));
 
     // floor
@@ -178,7 +180,7 @@ fn main() {
                                            Box::new(Cuboid::new(Vec3::new(0.1, 50.0, 50.0))))));
 
 
-    // let dir_light = Box::new(DirectionalLight::new(0.6, na::one(), -Vec3::y()));
+    // let dir_light = Box::new(DirectionalLight::new(1.0, na::one(), -Vec3::y()));
     // scene.add_light(dir_light as Box<Light>);
     let pnt_light_red = Box::new(PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 500.0));
     scene.add_light(pnt_light_red as Box<Light>);
@@ -186,7 +188,7 @@ fn main() {
     scene.add_light(pnt_light_green as Box<Light>);
     let pnt_light_blue = Box::new(PointLight::new(1.0, Vec3::new(0.0, 0.0, 1.0), Pnt3::new(0.0, 0.0, 10.0), 500.0));
     scene.add_light(pnt_light_blue as Box<Light>);
-    let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(0.0, 25.0, -40.0), 100.0));
+    let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(0.0, 25.0, 0.0), 500.0));
     scene.add_light(pnt_light_white as Box<Light>);
 
     let colours = render(width, height, samples, &camera, &mut scene, depth);
