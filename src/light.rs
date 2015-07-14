@@ -1,7 +1,9 @@
 
 use na;
 use na::{Norm, Pnt3, Vec3};
+use ncollide::ray::{Ray3};
 
+use scene::{Scene};
 use spectrum::{Spectrum};
 
 pub trait Light {
@@ -12,6 +14,8 @@ pub trait Light {
     /// a normalized vector indicating the
     /// incident light direction.
     fn sample(&self, p: &Pnt3<f64>) -> (Spectrum, Vec3<f64>);
+
+    fn shadow(&self, p: &Pnt3<f64>, scene: &Scene) -> bool;
 }
 
 pub struct PointLight {
@@ -49,6 +53,16 @@ impl Light for PointLight {
             (na::zero(), wi)
         }
     }
+
+    /// Is the point p in shadow cast by this light?
+    fn shadow(&self, p: &Pnt3<f64>, scene: &Scene) -> bool {
+        let dist = (self.position - *p).norm();
+        let mut dir = self.position - *p;
+        dir.normalize_mut();
+        let ray = Ray3::new(*p, dir);
+        scene.intersections(&ray).iter()
+                                 .any(|&x| x < dist)
+    }
 }
 
 pub struct DirectionalLight {
@@ -72,6 +86,10 @@ impl Light for DirectionalLight {
 
     fn sample(&self, _: &Pnt3<f64>) -> (Spectrum, Vec3<f64>) {
         (self.colour * self.intensity, -self.direction)
+    }
+
+    fn shadow(&self, _: &Pnt3<f64>, _: &Scene) -> bool {
+        false
     }
 }
 

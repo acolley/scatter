@@ -37,11 +37,14 @@ impl SurfaceIntegrator for Diffuse {
         // in order to simulate shadows. This should also cast ray differentials?
         let mut value = na::zero();
         for light in &scene.lights {
-            let (li, wi) = light.sample(&p);
-            let dot: f64 = na::dot(n, &wi);
-            if dot > 0.0 {
-                let c = li * *colour * dot;
-                value = value + c;
+            // cast shadow ray
+            if !light.shadow(p, scene) {
+                let (li, wi) = light.sample(&p);
+                let dot: f64 = na::dot(n, &wi);
+                if dot > 0.0 {
+                    let c = li * *colour * dot;
+                    value = value + c;
+                }
             }
         }
         value

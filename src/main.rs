@@ -184,10 +184,10 @@ fn main() {
     // scene.add_light(dir_light as Box<Light>);
     let pnt_light_red = Box::new(PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 500.0));
     scene.add_light(pnt_light_red as Box<Light>);
-    let pnt_light_green = Box::new(PointLight::new(1.0, Vec3::new(0.0, 1.0, 0.0), Pnt3::new(0.0, 5.0, 0.0), 500.0));
-    scene.add_light(pnt_light_green as Box<Light>);
-    let pnt_light_blue = Box::new(PointLight::new(1.0, Vec3::new(0.0, 0.0, 1.0), Pnt3::new(0.0, 0.0, 10.0), 500.0));
-    scene.add_light(pnt_light_blue as Box<Light>);
+    // let pnt_light_green = Box::new(PointLight::new(1.0, Vec3::new(0.0, 1.0, 0.0), Pnt3::new(0.0, 5.0, 0.0), 500.0));
+    // scene.add_light(pnt_light_green as Box<Light>);
+    // let pnt_light_blue = Box::new(PointLight::new(1.0, Vec3::new(0.0, 0.0, 1.0), Pnt3::new(0.0, 15.0, 10.0), 500.0));
+    // scene.add_light(pnt_light_blue as Box<Light>);
     let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(0.0, 25.0, 0.0), 500.0));
     scene.add_light(pnt_light_white as Box<Light>);
 

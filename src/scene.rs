@@ -93,6 +93,35 @@ impl Scene {
         self.lights.push(light);
     }
 
+    pub fn intersects(&self, ray: &Ray3<f64>) -> bool {
+        let mut intersections = Vec::new();
+        {
+            // we define a scope here so that visitor (which takes a mutable
+            // borrow of the intersections vector) is dropped before we need
+            // to take another borrow of the intersections vector later on
+            let mut visitor = RayInterferencesCollector::new(ray, &mut intersections);
+            self.world.visit(&mut visitor);
+        }
+        intersections.iter().any(|n| n.geom.intersects_with_transform_and_ray(&n.transform, ray))
+    }
+
+    pub fn intersections(&self, ray: &Ray3<f64>) -> Vec<f64> {
+        let mut intersections = Vec::new();
+        {
+            // we define a scope here so that visitor (which takes a mutable
+            // borrow of the intersections vector) is dropped before we need
+            // to take another borrow of the intersections vector later on
+            let mut visitor = RayInterferencesCollector::new(ray, &mut intersections);
+            self.world.visit(&mut visitor);
+        }
+        intersections.iter()
+                     .map(|n| n.geom.toi_with_transform_and_ray(&n.transform, ray, true))
+                     .filter(|x| x.is_some())
+                     .map(|x| x.unwrap())
+                     .filter(|&x| x > 0.0)
+                     .collect()
+    }
+
     pub fn trace(&self, ray: &Ray3<f64>, depth: u32) -> Spectrum {
         let mut colour: Spectrum = na::zero();
         let mut intersections = Vec::new();
