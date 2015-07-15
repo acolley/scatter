@@ -89,8 +89,8 @@ impl Scene {
         self.world.insert_new(node.clone(), node.aabb.clone());
     }
 
-    pub fn add_light(&mut self, light: Box<Light>) {
-        self.lights.push(light);
+    pub fn add_light<T: 'static + Light>(&mut self, light: Box<T>) {
+        self.lights.push(light as Box<Light>);
     }
 
     pub fn intersects(&self, ray: &Ray3<f64>) -> bool {

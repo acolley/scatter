@@ -80,43 +80,8 @@ fn render(width: u32,
     colours
 }
 
-fn main() {
-    let matches = App::new("pbrt")
-                       .version("0.1")
-                       .arg(Arg::with_name("OUTPUT")
-                            .short("o")
-                            .long("output")
-                            .takes_value(true))
-                       .arg(Arg::with_name("WIDTH")
-                            .short("w")
-                            .long("width")
-                            .takes_value(true))
-                       .arg(Arg::with_name("HEIGHT")
-                            .short("h")
-                            .long("height")
-                            .takes_value(true))
-                       .arg(Arg::with_name("SAMPLES")
-                            .short("s")
-                            .long("samples")
-                            .takes_value(true))
-                       .arg(Arg::with_name("DEPTH")
-                            .short("d")
-                            .long("depth")
-                            .takes_value(true))
-                       .get_matches();
-
-    let width = matches.value_of("WIDTH").unwrap_or("100").parse::<u32>().ok().expect("Value for width is not a valid unsigned integer");
-    let height = matches.value_of("HEIGHT").unwrap_or("100").parse::<u32>().ok().expect("Value for height is not a valid unsigned integer");
-    let samples = matches.value_of("SAMPLES").unwrap_or("3").parse::<u32>().ok().expect("Value for samples is not a valid unsigned integer");
-    assert!(samples > 0);
-    let depth = matches.value_of("DEPTH").unwrap_or("2").parse::<u32>().ok().expect("Value for depth is not a valid unsigned integer");
-
-    let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, 0.0), na::zero()), width, height, 45.0, 1.0, 100000.0);
-    camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
-
+fn setup(scene: &mut Scene) {
     let teximg = image::open(&Path::new("src/checker_huge.gif")).unwrap().to_rgb();
-
-    let mut scene = Scene::new();
 
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
@@ -183,13 +148,51 @@ fn main() {
     // let dir_light = Box::new(DirectionalLight::new(1.0, na::one(), -Vec3::y()));
     // scene.add_light(dir_light as Box<Light>);
     let pnt_light_red = Box::new(PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 500.0));
-    scene.add_light(pnt_light_red as Box<Light>);
+    scene.add_light(pnt_light_red);
     // let pnt_light_green = Box::new(PointLight::new(1.0, Vec3::new(0.0, 1.0, 0.0), Pnt3::new(0.0, 5.0, 0.0), 500.0));
     // scene.add_light(pnt_light_green as Box<Light>);
     // let pnt_light_blue = Box::new(PointLight::new(1.0, Vec3::new(0.0, 0.0, 1.0), Pnt3::new(0.0, 15.0, 10.0), 500.0));
     // scene.add_light(pnt_light_blue as Box<Light>);
     let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(0.0, 25.0, 0.0), 500.0));
-    scene.add_light(pnt_light_white as Box<Light>);
+    scene.add_light(pnt_light_white);
+}
+
+fn main() {
+    let matches = App::new("pbrt")
+                       .version("0.1")
+                       .arg(Arg::with_name("OUTPUT")
+                            .short("o")
+                            .long("output")
+                            .takes_value(true))
+                       .arg(Arg::with_name("WIDTH")
+                            .short("w")
+                            .long("width")
+                            .takes_value(true))
+                       .arg(Arg::with_name("HEIGHT")
+                            .short("h")
+                            .long("height")
+                            .takes_value(true))
+                       .arg(Arg::with_name("SAMPLES")
+                            .short("s")
+                            .long("samples")
+                            .takes_value(true))
+                       .arg(Arg::with_name("DEPTH")
+                            .short("d")
+                            .long("depth")
+                            .takes_value(true))
+                       .get_matches();
+
+    let width = matches.value_of("WIDTH").unwrap_or("100").parse::<u32>().ok().expect("Value for width is not a valid unsigned integer");
+    let height = matches.value_of("HEIGHT").unwrap_or("100").parse::<u32>().ok().expect("Value for height is not a valid unsigned integer");
+    let samples = matches.value_of("SAMPLES").unwrap_or("3").parse::<u32>().ok().expect("Value for samples is not a valid unsigned integer");
+    assert!(samples > 0);
+    let depth = matches.value_of("DEPTH").unwrap_or("2").parse::<u32>().ok().expect("Value for depth is not a valid unsigned integer");
+
+    let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, 0.0), na::zero()), width, height, 45.0, 1.0, 100000.0);
+    camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
+
+    let mut scene = Scene::new();
+    setup(&mut scene);
 
     let colours = render(width, height, samples, &camera, &mut scene, depth);
 
