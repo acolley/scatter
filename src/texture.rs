@@ -1,4 +1,6 @@
 
+use std::sync::Arc;
+
 use na;
 
 use image::{GenericImage, ImageBuffer, Rgb, RgbImage};
@@ -30,11 +32,13 @@ impl Texture for ConstantTexture {
 }
 
 pub struct ImageTexture {
-    data: RgbImage
+    data: Arc<RgbImage>
 }
 
 impl ImageTexture {
-    pub fn new(data: RgbImage) -> ImageTexture {
+    // TODO: make it take an Rc<RgbImage> so that the image
+    // can be shared instead of copied
+    pub fn new(data: Arc<RgbImage>) -> ImageTexture {
         ImageTexture {
             data : data
         }

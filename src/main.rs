@@ -26,9 +26,9 @@ mod texture;
 
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
-use light::{DirectionalLight, Light, PointLight};
+use light::{DirectionalLight, PointLight};
 use scene::{Scene, SceneNode};
-use surface::{Diffuse, PerfectSpecular};
+use surface::{Diffuse, SpecularReflection};
 use texture::{ConstantTexture, ImageTexture};
 
 /// This is required because the compiler cannot infer enough
@@ -81,7 +81,7 @@ fn render(width: u32,
 }
 
 fn setup(scene: &mut Scene) {
-    let teximg = image::open(&Path::new("src/checker_huge.gif")).unwrap().to_rgb();
+    let teximg = Arc::new(image::open(&Path::new("src/checker_huge.gif")).unwrap().to_rgb());
 
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
@@ -91,20 +91,20 @@ fn setup(scene: &mut Scene) {
 
     let transform = Iso3::new(Vec3::new(-4.0, 3.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
-                                           Box::new(PerfectSpecular), 
+                                           Box::new(SpecularReflection), 
                                            Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 0.5))),
                                            Box::new(Ball::new(2.0)))));
 
     let transform = Iso3::new(Vec3::new(-0.5, -1.0, 7.0), Vec3::new(0.0, 0.0, consts::PI / 4.0));
     scene.add_node(Arc::new(SceneNode::new(transform,
-                                           Box::new(PerfectSpecular),
+                                           Box::new(SpecularReflection),
                                            Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 0.5))),
                                            Box::new(Cuboid::new(Vec3::new(0.5, 0.5, 0.5))))));
 
     let transform = Iso3::new(Vec3::new(-1.0, -2.0, 5.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
                                            Box::new(Diffuse), 
-                                           Box::new(ImageTexture::new(teximg)),
+                                           Box::new(ImageTexture::new(teximg.clone())),
                                            Box::new(Ball::new(1.0)))));
 
     // floor
@@ -146,14 +146,16 @@ fn setup(scene: &mut Scene) {
 
 
     // let dir_light = Box::new(DirectionalLight::new(1.0, na::one(), -Vec3::y()));
-    // scene.add_light(dir_light as Box<Light>);
-    let pnt_light_red = Box::new(PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 500.0));
-    scene.add_light(pnt_light_red);
+    // scene.add_light(dir_light);
+    // let pnt_light_red = Box::new(PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 500.0));
+    // scene.add_light(pnt_light_red);
     // let pnt_light_green = Box::new(PointLight::new(1.0, Vec3::new(0.0, 1.0, 0.0), Pnt3::new(0.0, 5.0, 0.0), 500.0));
-    // scene.add_light(pnt_light_green as Box<Light>);
+    // scene.add_light(pnt_light_green);
     // let pnt_light_blue = Box::new(PointLight::new(1.0, Vec3::new(0.0, 0.0, 1.0), Pnt3::new(0.0, 15.0, 10.0), 500.0));
-    // scene.add_light(pnt_light_blue as Box<Light>);
-    let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(0.0, 25.0, 0.0), 500.0));
+    // scene.add_light(pnt_light_blue);
+    let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(0.0, 25.0, 0.0), 600.0));
+    scene.add_light(pnt_light_white);
+    let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(10.0, 25.0, 10.0), 500.0));
     scene.add_light(pnt_light_white);
 }
 

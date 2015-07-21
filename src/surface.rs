@@ -51,10 +51,24 @@ impl SurfaceIntegrator for Diffuse {
     }
 }
 
-pub struct PerfectSpecular;
+pub struct Specular;
 
-impl SurfaceIntegrator for PerfectSpecular {
-    /// Simulate perfect specular reflection (i.e. a mirror)
+impl SurfaceIntegrator for Specular {
+    fn sample(&self,
+              wi: &Vec3<f64>,
+              p: &Pnt3<f64>, 
+              n: &Vec3<f64>, 
+              colour: &Spectrum,
+              scene: &Scene,
+              depth: u32) -> Spectrum {
+        na::zero()
+    }
+}
+
+pub struct SpecularReflection;
+
+impl SurfaceIntegrator for SpecularReflection {
+    /// Simulate perfect specular reflection (e.g. a mirror)
     fn sample(&self,
               wi: &Vec3<f64>,
               p: &Pnt3<f64>, 
@@ -76,5 +90,32 @@ impl SurfaceIntegrator for PerfectSpecular {
         scene.trace(&reflect_ray, depth - 1)
 
         // TODO: cast ray differentials for reflected rays
+    }
+}
+
+pub struct SpecularTransmission {
+    n1: f64,
+    n2: f64
+}
+
+impl SpecularTransmission {
+    pub fn new(n1: f64, n2: f64) -> SpecularTransmission {
+        SpecularTransmission {
+            n1 : n1,
+            n2 : n2
+        }
+    }
+}
+
+impl SurfaceIntegrator for SpecularTransmission {
+    /// Simulate specular transmission (e.g. glass)
+    fn sample(&self,
+              wi: &Vec3<f64>,
+              p: &Pnt3<f64>, 
+              n: &Vec3<f64>, 
+              colour: &Spectrum,
+              scene: &Scene,
+              depth: u32) -> Spectrum {
+        na::zero()
     }
 }
