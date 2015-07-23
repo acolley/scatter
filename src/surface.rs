@@ -14,8 +14,11 @@ pub trait SurfaceIntegrator {
     /// of the surface at that point and the scene
     /// for tracing more rays through the scene if
     /// required for reflected/transmitted rays.
+    /// Because this is a reverse ray tracer (we trace
+    /// rays from the camera first) the sample method
+    /// takes the outgoing direction as a parameter.
   	fn sample(&self, 
-              wi: &Vec3<f64>,
+              wo: &Vec3<f64>,
               p: &Pnt3<f64>, 
               n: &Vec3<f64>, 
               colour: &Spectrum, 
@@ -51,16 +54,30 @@ impl SurfaceIntegrator for Diffuse {
     }
 }
 
-pub struct Specular;
+pub struct Specular {
+    etai: f64,
+    etao: f64
+}
+
+impl Specular {
+    pub fn new(etai: f64, etao: f64) -> Specular {
+        Specular {
+            etai : etai,
+            etao : etao
+        }
+    }
+}
 
 impl SurfaceIntegrator for Specular {
     fn sample(&self,
-              wi: &Vec3<f64>,
+              wo: &Vec3<f64>,
               p: &Pnt3<f64>, 
               n: &Vec3<f64>, 
               colour: &Spectrum,
               scene: &Scene,
               depth: u32) -> Spectrum {
+        // This should perform both reflection
+        // and transmission of rays
         na::zero()
     }
 }
@@ -70,7 +87,7 @@ pub struct SpecularReflection;
 impl SurfaceIntegrator for SpecularReflection {
     /// Simulate perfect specular reflection (e.g. a mirror)
     fn sample(&self,
-              wi: &Vec3<f64>,
+              wo: &Vec3<f64>,
               p: &Pnt3<f64>, 
               n: &Vec3<f64>, 
               colour: &Spectrum,
@@ -84,38 +101,11 @@ impl SurfaceIntegrator for SpecularReflection {
         }
         // TODO: attenuate amount of light energy
         // that is reflected from the surface
-        let mut wo = *wi - *n * 2.0 * (na::dot(wi, n));
-        wo.normalize_mut();
-        let reflect_ray = Ray3::new(*p, wo);
+        let mut wi = *wo - *n * 2.0 * (na::dot(wo, n));
+        wi.normalize_mut();
+        let reflect_ray = Ray3::new(*p, wi);
         scene.trace(&reflect_ray, depth - 1)
 
         // TODO: cast ray differentials for reflected rays
-    }
-}
-
-pub struct SpecularTransmission {
-    n1: f64,
-    n2: f64
-}
-
-impl SpecularTransmission {
-    pub fn new(n1: f64, n2: f64) -> SpecularTransmission {
-        SpecularTransmission {
-            n1 : n1,
-            n2 : n2
-        }
-    }
-}
-
-impl SurfaceIntegrator for SpecularTransmission {
-    /// Simulate specular transmission (e.g. glass)
-    fn sample(&self,
-              wi: &Vec3<f64>,
-              p: &Pnt3<f64>, 
-              n: &Vec3<f64>, 
-              colour: &Spectrum,
-              scene: &Scene,
-              depth: u32) -> Spectrum {
-        na::zero()
     }
 }

@@ -16,9 +16,11 @@ use ncollide::shape::{Ball, Cuboid};
 use ncollide::math::{Point};
 use ncollide::bounding_volume::{BoundingSphere, HasBoundingSphere};
 
+mod bxdf;
 mod camera;
 mod light;
 mod material;
+mod math;
 mod scene;
 mod spectrum;
 mod surface;

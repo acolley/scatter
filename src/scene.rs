@@ -4,12 +4,13 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use na;
-use na::{Iso3, Pnt2, Pnt3, Vec3};
+use na::{Iso3, Mat3, Pnt2, Pnt3, Rot3, Vec3};
 use ncollide::bounding_volume::{AABB3, HasAABB};
 use ncollide::partitioning::{DBVT};
 use ncollide::ray::{RayCast, Ray3, RayInterferencesCollector};
 
 use light::{Light};
+use math;
 use spectrum::{Spectrum};
 use surface::{SurfaceIntegrator};
 use texture::{Texture};
@@ -48,7 +49,6 @@ pub struct Scene {
 /// Get the nearest node and surface info at the intersection
 /// point intersected by the given ray.
 fn get_nearest<'a>(ray: &Ray3<f64>, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneNode, f64, Vec3<f64>, Pnt2<f64>)> {
-    // TODO: ability to ignore intersections with certain SceneNodes
     let mut nearest_node: Option<&SceneNode> = None;
     let mut nearest_toi = std::f64::MAX;
     let mut nearest_normal = na::zero();
@@ -144,22 +144,27 @@ impl Scene {
         // ray differentials
         match get_nearest(ray, &intersections) {
             Some((ref node, toi, normal, uvs)) => {
-                // TODO: this should really trace a ray from
-                // the point to the light to see if it visible
-                // from the light and that there is no object
-                // obscuring it (only relevant for lights other
-                // than directional or ambient).
+                let (tangent, binormal) = math::coordinate_system(&normal);
+                let world2surface = unsafe {
+                    Rot3::new_with_mat(Mat3::new(
+                        tangent.x, tangent.y, tangent.z,
+                        binormal.x, binormal.y, binormal.z,
+                        normal.x, normal.y, normal.z
+                    ))
+                };
+
+                // With this transform matrix we can put
+                // incident and outgoing vectors into the
+                // surface's coordinate space, which will
+                // make more complex BSDFs possible.
                 let p = ray.orig + ray.dir * toi;
 
-                // let light_ray = light.
-                // TODO: incorporate colour from the object itself
-                // colour of object is set to all 1 for now
                 // TODO: attenuate amount of light energy
                 // reflected from the surface
                 let c = node.surface.sample(&ray.dir,
                                             &p,
                                             &normal,
-                                            &node.texture.sample(uvs.x, uvs.y), // TODO: get uv coords for this
+                                            &node.texture.sample(uvs.x, uvs.y),
                                             self,
                                             depth);
                 colour = colour + c;
