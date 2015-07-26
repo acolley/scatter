@@ -1,9 +1,10 @@
 [package]
-name = "pbrt"
+name = "scatter"
 version = "0.1.0"
 authors = ["acolley <alnessy@hotmail.com>"]
 
 [dependencies]
+bitflags = "0.3.2"
 clap = "0.11.0"
 image = "0.3.11"
 nalgebra = "*"
