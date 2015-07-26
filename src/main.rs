@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate bitflags;
 extern crate clap;
 extern crate image;
 extern crate rand;
@@ -12,6 +14,7 @@ use std::path::{Path};
 use std::sync::Arc;
 
 use self::na::{Iso3, Pnt3, Vec3, Translate};
+use ncollide::ray::{Ray3};
 use ncollide::shape::{Ball, Cuboid};
 use ncollide::math::{Point};
 use ncollide::bounding_volume::{BoundingSphere, HasBoundingSphere};
@@ -21,15 +24,18 @@ mod camera;
 mod light;
 mod material;
 mod math;
+mod ray;
 mod scene;
 mod spectrum;
 mod surface;
 mod texture;
 
+use bxdf::{BSDF};
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
 use light::{DirectionalLight, PointLight};
 use scene::{Scene, SceneNode};
+use spectrum::{Spectrum};
 use surface::{Diffuse, SpecularReflection};
 use texture::{ConstantTexture, ImageTexture};
 
@@ -38,6 +44,14 @@ use texture::{ConstantTexture, ImageTexture};
 /// on types that implement HasBoundingSphere (including Ball).
 fn get_bounding_sphere<T: HasBoundingSphere<P, M>, P: Point, M: Translate<P>>(t: &T, m: &M) -> BoundingSphere<P> {
     t.bounding_sphere(m)
+}
+
+pub fn sample_lights(p: &Pnt3<f64>, n: &Vec3<f64>, scene: &Scene) -> Spectrum {
+    na::zero()
+}
+
+pub fn specular_reflect(ray: &Ray3<f64>, bsdf: &BSDF, scene: &Scene) -> Spectrum {
+    na::zero()
 }
 
 fn sample(x: f64,
@@ -83,7 +97,7 @@ fn render(width: u32,
 }
 
 fn setup(scene: &mut Scene) {
-    let teximg = Arc::new(image::open(&Path::new("src/checker_huge.gif")).unwrap().to_rgb());
+    let teximg = Arc::new(image::open(&Path::new("resources/checker_huge.gif")).unwrap().to_rgb());
 
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
