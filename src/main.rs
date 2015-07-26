@@ -34,6 +34,7 @@ use bxdf::{BSDF};
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
 use light::{DirectionalLight, PointLight};
+use material::{Material, StandardMaterial};
 use scene::{Scene, SceneNode};
 use spectrum::{Spectrum};
 use surface::{Diffuse, SpecularReflection};
@@ -46,7 +47,10 @@ fn get_bounding_sphere<T: HasBoundingSphere<P, M>, P: Point, M: Translate<P>>(t:
     t.bounding_sphere(m)
 }
 
-pub fn sample_lights(p: &Pnt3<f64>, n: &Vec3<f64>, scene: &Scene) -> Spectrum {
+pub fn sample_lights(wo: &Vec3<f64>, 
+                     p: &Pnt3<f64>, 
+                     n: &Vec3<f64>, 
+                     scene: &Scene) -> Spectrum {
     na::zero()
 }
 
@@ -99,65 +103,74 @@ fn render(width: u32,
 fn setup(scene: &mut Scene) {
     let teximg = Arc::new(image::open(&Path::new("resources/checker_huge.gif")).unwrap().to_rgb());
 
+    let white = Vec3::new(1.0, 1.0, 1.0);
+    let yellow = Vec3::new(1.0, 1.0, 0.5);
+    let material_yellow = Arc::new(
+        StandardMaterial::new(Box::new(Diffuse),
+                              Box::new(ConstantTexture::new(yellow)))
+    );
+    let material_reflect = Arc::new(
+        StandardMaterial::new(Box::new(SpecularReflection),
+                              Box::new(ConstantTexture::new(yellow)))
+    );
+    let material_white = Arc::new(
+        StandardMaterial::new(Box::new(Diffuse),
+                              Box::new(ConstantTexture::new(white)))
+    );
+    let material_checker = Arc::new(
+        StandardMaterial::new(Box::new(Diffuse),
+                              Box::new(ImageTexture::new(teximg.clone())))
+    );
+
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
-                                           Box::new(Diffuse), 
-                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 0.5))),
+                                           material_yellow.clone(),
                                            Box::new(Ball::new(1.0)))));
 
     let transform = Iso3::new(Vec3::new(-4.0, 3.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
-                                           Box::new(SpecularReflection), 
-                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 0.5))),
+                                           material_reflect.clone(),
                                            Box::new(Ball::new(2.0)))));
 
     let transform = Iso3::new(Vec3::new(-0.5, -1.0, 7.0), Vec3::new(0.0, 0.0, consts::PI / 4.0));
     scene.add_node(Arc::new(SceneNode::new(transform,
-                                           Box::new(SpecularReflection),
-                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 0.5))),
+                                           material_reflect.clone(),
                                            Box::new(Cuboid::new(Vec3::new(0.5, 0.5, 0.5))))));
 
     let transform = Iso3::new(Vec3::new(-1.0, -2.0, 5.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
-                                           Box::new(Diffuse), 
-                                           Box::new(ImageTexture::new(teximg.clone())),
+                                           material_checker.clone(),
                                            Box::new(Ball::new(1.0)))));
 
     // floor
     let transform = Iso3::new(Vec3::new(0.0, -3.0, 0.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
-                                           Box::new(Diffuse),
-                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 1.0))),
+                                           material_white.clone(),
                                            Box::new(Cuboid::new(Vec3::new(50.0, 0.1, 50.0))))));
     // ceiling
     let transform = Iso3::new(Vec3::new(0.0, 47.0, 0.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
-                                           Box::new(Diffuse),
-                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 1.0))),
+                                           material_white.clone(),
                                            Box::new(Cuboid::new(Vec3::new(50.0, 0.1, 50.0))))));
     // front
     let transform = Iso3::new(Vec3::new(0.0, -3.0, 50.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
-                                           Box::new(Diffuse),
-                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 1.0))),
+                                           material_white.clone(),
                                            Box::new(Cuboid::new(Vec3::new(50.0, 50.0, 0.1))))));
     // back
     let transform = Iso3::new(Vec3::new(0.0, -3.0, -50.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
-                                           Box::new(Diffuse),
-                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 1.0))),
+                                           material_white.clone(),
                                            Box::new(Cuboid::new(Vec3::new(50.0, 50.0, 0.1))))));
     // left
     let transform = Iso3::new(Vec3::new(50.0, -3.0, 0.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
-                                           Box::new(Diffuse),
-                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 1.0))),
+                                           material_white.clone(),
                                            Box::new(Cuboid::new(Vec3::new(0.1, 50.0, 50.0))))));
     // right
     let transform = Iso3::new(Vec3::new(-50.0, -3.0, 0.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform,
-                                           Box::new(Diffuse),
-                                           Box::new(ConstantTexture::new(Vec3::new(1.0, 1.0, 1.0))),
+                                           material_white.clone(),
                                            Box::new(Cuboid::new(Vec3::new(0.1, 50.0, 50.0))))));
 
 

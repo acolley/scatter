@@ -10,6 +10,7 @@ use ncollide::partitioning::{DBVT};
 use ncollide::ray::{RayCast, Ray3, RayInterferencesCollector};
 
 use light::{Light};
+use material::{Material};
 use math;
 use spectrum::{Spectrum};
 use surface::{SurfaceIntegrator};
@@ -18,23 +19,25 @@ use texture::{Texture};
 pub struct SceneNode {
     pub uuid: Uuid,
     pub transform: Iso3<f64>,
-    pub surface: Box<SurfaceIntegrator>,
-    pub texture: Box<Texture>,
+    pub material: Arc<Material>,
     pub geom: Box<RayCast<Pnt3<f64>, Iso3<f64>>>,
     pub aabb: AABB3<f64>
 }
 
+pub struct Intersection {
+    pub point: Pnt3<f64>,
+    pub normal: Vec3<f64>
+}
+
 impl SceneNode {
-    pub fn new<S: 'static + SurfaceIntegrator, T: 'static + Texture, N: 'static + RayCast<Pnt3<f64>, Iso3<f64>> + HasAABB<Pnt3<f64>, Iso3<f64>>>(
+    pub fn new<M: 'static + Material, N: 'static + RayCast<Pnt3<f64>, Iso3<f64>> + HasAABB<Pnt3<f64>, Iso3<f64>>>(
         transform: Iso3<f64>,
-        surface: Box<S>,
-        texture: Box<T>,
+        material: Arc<M>,
         geom: Box<N>) -> SceneNode {
         SceneNode {
             uuid : Uuid::new_v4(),
             transform : transform,
-            surface : surface as Box<SurfaceIntegrator>,
-            texture : texture as Box<Texture>,
+            material : material as Arc<Material>,
             aabb : geom.aabb(&transform),
             geom : geom as Box<RayCast<Pnt3<f64>, Iso3<f64>>>
         }
@@ -122,6 +125,8 @@ impl Scene {
                      .collect()
     }
 
+    // pub fn get_nearest_intersection_with(&self, ray: &Ray3<f64>)
+
     pub fn trace(&self, ray: &Ray3<f64>, depth: u32) -> Spectrum {
         let mut colour: Spectrum = na::zero();
         let mut intersections = Vec::new();
@@ -161,12 +166,14 @@ impl Scene {
 
                 // TODO: attenuate amount of light energy
                 // reflected from the surface
-                let c = node.surface.sample(&ray.dir,
-                                            &p,
-                                            &normal,
-                                            &node.texture.sample(uvs.x, uvs.y),
-                                            self,
-                                            depth);
+                let material = &node.material;
+                let c = material.get_surface().sample(
+                    &ray.dir,
+                    &p,
+                    &normal,
+                    &material.get_texture().sample(uvs.x, uvs.y),
+                    self,
+                    depth);
                 colour = colour + c;
             },
             None => {}
