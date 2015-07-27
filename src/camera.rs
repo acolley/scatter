@@ -1,10 +1,11 @@
 extern crate nalgebra as na;
 
 use self::na::{Iso3, OrthoMat3, PerspMat3, Pnt3, Pnt4, Translation, Vec3};
-use ncollide::ray::{Ray3};
+
+use ray::{Ray};
 
 pub trait Camera {
-    fn ray_from(&self, x: f64, y: f64) -> Ray3<f64>;
+    fn ray_from(&self, x: f64, y: f64) -> Ray;
     fn look_at_z(&mut self, at: &Pnt3<f64>, up: &Vec3<f64>);
 }
 
@@ -32,14 +33,14 @@ impl PerspectiveCamera {
 }
 
 impl Camera for PerspectiveCamera {
-    fn ray_from(&self, x: f64, y: f64) -> Ray3<f64> {
+    fn ray_from(&self, x: f64, y: f64) -> Ray {
         let viewproj = na::to_homogeneous(&self.transform) * na::inv(&self.proj.to_mat()).expect("Projection matrix is not invertible");
         let device_x = ((x / self.width as f64) - 0.5) * 2.0;
         let device_y = -((y / self.height as f64) - 0.5) * 2.0;
         let point = Pnt4::new(device_x, device_y, -1.0, 1.0);
         let h_eye = viewproj * point;
         let eye: Pnt3<f64> = na::from_homogeneous(&h_eye);
-        Ray3::new(self.transform.translation().to_pnt(), na::normalize(&(eye - self.transform.translation().to_pnt())))
+        Ray::new(self.transform.translation().to_pnt(), na::normalize(&(eye - self.transform.translation().to_pnt())))
     }
 
     fn look_at_z(&mut self, at: &Pnt3<f64>, up: &Vec3<f64>) {

@@ -25,38 +25,22 @@ mod light;
 mod material;
 mod math;
 mod ray;
+mod renderer;
 mod scene;
 mod spectrum;
 mod surface;
 mod texture;
 
-use bxdf::{BSDF};
+use bxdf::{BSDF, BxDFType};
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
 use light::{DirectionalLight, PointLight};
 use material::{Material, StandardMaterial};
-use scene::{Scene, SceneNode};
+use renderer::{Renderer, StandardRenderer};
+use scene::{Intersection, Scene, SceneNode};
 use spectrum::{Spectrum};
 use surface::{Diffuse, SpecularReflection};
 use texture::{ConstantTexture, ImageTexture};
-
-/// This is required because the compiler cannot infer enough
-/// type information in order to resolve the method 'bounding_sphere'
-/// on types that implement HasBoundingSphere (including Ball).
-fn get_bounding_sphere<T: HasBoundingSphere<P, M>, P: Point, M: Translate<P>>(t: &T, m: &M) -> BoundingSphere<P> {
-    t.bounding_sphere(m)
-}
-
-pub fn sample_lights(wo: &Vec3<f64>, 
-                     p: &Pnt3<f64>, 
-                     n: &Vec3<f64>, 
-                     scene: &Scene) -> Spectrum {
-    na::zero()
-}
-
-pub fn specular_reflect(ray: &Ray3<f64>, bsdf: &BSDF, scene: &Scene) -> Spectrum {
-    na::zero()
-}
 
 fn sample(x: f64,
           y: f64,

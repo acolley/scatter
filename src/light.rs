@@ -1,8 +1,8 @@
 
 use na;
 use na::{Norm, Pnt3, Vec3};
-use ncollide::ray::{Ray3};
 
+use ray::{Ray};
 use scene::{Scene};
 use spectrum::{Spectrum};
 
@@ -59,7 +59,7 @@ impl Light for PointLight {
         let dist = (self.position - *p).norm();
         let mut dir = self.position - *p;
         dir.normalize_mut();
-        let ray = Ray3::new(*p, dir);
+        let ray = Ray::new(*p, dir);
         scene.intersections(&ray).iter()
                                  .any(|&x| x < dist)
     }
@@ -89,6 +89,7 @@ impl Light for DirectionalLight {
     }
 
     fn shadow(&self, _: &Pnt3<f64>, _: &Scene) -> bool {
+        // No point can be in shadow from a global directional light
         false
     }
 }

@@ -1,9 +1,9 @@
 
 use na;
 use na::{Norm, Pnt3, Vec3};
-use ncollide::ray::{Ray3};
 
 use light::{Light};
+use ray::{Ray};
 use scene::{Scene};
 use spectrum::{Spectrum};
 
@@ -103,7 +103,7 @@ impl SurfaceIntegrator for SpecularReflection {
         // that is reflected from the surface
         let mut wi = *wo - *n * 2.0 * (na::dot(wo, n));
         wi.normalize_mut();
-        let reflect_ray = Ray3::new(*p, wi);
+        let reflect_ray = Ray::new(*p, wi);
         scene.trace(&reflect_ray, depth - 1)
 
         // TODO: cast ray differentials for reflected rays
