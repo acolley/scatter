@@ -28,27 +28,24 @@ mod ray;
 mod renderer;
 mod scene;
 mod spectrum;
-mod surface;
 mod texture;
 
-use bxdf::{BSDF, BxDFType};
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
 use light::{DirectionalLight, PointLight};
-use material::{Material, StandardMaterial};
+use material::{Material, DiffuseMaterial, SpecularMaterial};
 use renderer::{Renderer, StandardRenderer};
 use scene::{Intersection, Scene, SceneNode};
 use spectrum::{Spectrum};
-use surface::{Diffuse, SpecularReflection};
 use texture::{ConstantTexture, ImageTexture};
 
 fn sample(x: f64,
           y: f64,
           camera: &PerspectiveCamera,
           scene: &mut Scene,
-          depth: u32) -> Vec3<f64> {
+          renderer: &Renderer) -> Vec3<f64> {
     let ray = camera.ray_from(x, y);
-    scene.trace(&ray, depth)
+    renderer.render(&ray, scene)
 }
 
 fn render(width: u32, 
@@ -56,13 +53,13 @@ fn render(width: u32,
           samples_per_pixel: u32,
           camera: &PerspectiveCamera,
           scene: &mut Scene,
-          depth: u32) -> Vec<u8> {
+          renderer: &Renderer) -> Vec<u8> {
     let mut colours = Vec::new();
     for y in 0..height {
         for x in 0..width {
             let mut c: Vec3<f64> = na::zero();
             if samples_per_pixel == 1 {
-                c = sample(x as f64, y as f64, camera, scene, depth);
+                c = sample(x as f64, y as f64, camera, scene, renderer);
             } else {
                 for _ in 0..samples_per_pixel {
                     // TODO: make the sampling methods into their
@@ -71,7 +68,7 @@ fn render(width: u32,
                     let dx = rand::random::<f64>() - 0.5;
                     let dy = rand::random::<f64>() - 0.5;
 
-                    c = c + sample((x as f64) + dx, (y as f64) + dy, camera, scene, depth);
+                    c = c + sample((x as f64) + dx, (y as f64) + dy, camera, scene, renderer);
                 }
             }
             c = c / (samples_per_pixel as f64);
@@ -90,20 +87,16 @@ fn setup(scene: &mut Scene) {
     let white = Vec3::new(1.0, 1.0, 1.0);
     let yellow = Vec3::new(1.0, 1.0, 0.5);
     let material_yellow = Arc::new(
-        StandardMaterial::new(Box::new(Diffuse),
-                              Box::new(ConstantTexture::new(yellow)))
+        DiffuseMaterial::new(Box::new(ConstantTexture::new(yellow)))
     );
     let material_reflect = Arc::new(
-        StandardMaterial::new(Box::new(SpecularReflection),
-                              Box::new(ConstantTexture::new(yellow)))
+        SpecularMaterial
     );
     let material_white = Arc::new(
-        StandardMaterial::new(Box::new(Diffuse),
-                              Box::new(ConstantTexture::new(white)))
+        DiffuseMaterial::new(Box::new(ConstantTexture::new(white)))
     );
     let material_checker = Arc::new(
-        StandardMaterial::new(Box::new(Diffuse),
-                              Box::new(ImageTexture::new(teximg.clone())))
+        DiffuseMaterial::new(Box::new(ImageTexture::new(teximg.clone())))
     );
 
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
@@ -201,15 +194,16 @@ fn main() {
     let height = matches.value_of("HEIGHT").unwrap_or("100").parse::<u32>().ok().expect("Value for height is not a valid unsigned integer");
     let samples = matches.value_of("SAMPLES").unwrap_or("3").parse::<u32>().ok().expect("Value for samples is not a valid unsigned integer");
     assert!(samples > 0);
-    let depth = matches.value_of("DEPTH").unwrap_or("2").parse::<u32>().ok().expect("Value for depth is not a valid unsigned integer");
+    let depth = matches.value_of("DEPTH").unwrap_or("2").parse::<i32>().ok().expect("Value for depth is not a valid unsigned integer");
 
     let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, 0.0), na::zero()), width, height, 45.0, 1.0, 100000.0);
     camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
 
     let mut scene = Scene::new();
     setup(&mut scene);
+    let renderer = StandardRenderer::new(depth);
 
-    let colours = render(width, height, samples, &camera, &mut scene, depth);
+    let colours = render(width, height, samples, &camera, &mut scene, &renderer);
 
     let filename = matches.value_of("OUTPUT").unwrap_or("pbrt.png");
     let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");

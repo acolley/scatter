@@ -15,7 +15,6 @@ use material::{Material};
 use math;
 use ray::{Ray};
 use spectrum::{Spectrum};
-use surface::{SurfaceIntegrator};
 use texture::{Texture};
 
 /// Structure representing an object in the 
@@ -142,29 +141,7 @@ impl Scene {
                      .collect()
     }
 
-    // pub fn trace(&self, ray: &Ray3<f64>) -> Option<Intersection> {
-    //     let mut intersections = Vec::new();
-    //     {
-    //         // we define a scope here so that visitor (which takes a mutable
-    //         // borrow of the intersections vector) is dropped before we need
-    //         // to take another borrow of the intersections vector later on
-    //         let mut visitor = RayInterferencesCollector::new(ray, &mut intersections);
-    //         self.world.visit(&mut visitor);
-    //     }
-
-    //     match get_nearest(ray, &intersections) {
-    //         Some((ref node, toi, normal, uvs)) => {
-    //             let p = ray.orig + ray.dir * toi;
-    //             Some(Intersection::new(p, normal, node.material.bsdf))
-    //         },
-    //         None => None
-    //     }
-    // }
-
-    // pub fn get_nearest_intersection_with(&self, ray: &Ray3<f64>)
-
-    pub fn trace(&self, ray: &Ray, depth: u32) -> Spectrum {
-        let mut colour: Spectrum = na::zero();
+    pub fn trace(&self, ray: &Ray) -> Option<Intersection> {
         let mut intersections = Vec::new();
         {
             // we define a scope here so that visitor (which takes a mutable
@@ -174,47 +151,69 @@ impl Scene {
             self.world.visit(&mut visitor);
         }
 
-        // cast a ray towards the light to see if this point
-        // should receive any luminance from it
-        // update: this is not a great idea for the naive
-        // lighting method in this case as points further away
-        // from the light on a sphere might intersect the sphere
-        // itself and interfere with the calculations
-        // when geometry is used to represent a light this
-        // won't be as much of an issue along with using
-        // ray differentials
         match get_nearest(ray, &intersections) {
             Some((ref node, toi, normal, uvs)) => {
-                let (tangent, binormal) = math::coordinate_system(&normal);
-
-                // With this transform matrix we can put
-                // incident and outgoing vectors into the
-                // surface's coordinate space, which will
-                // make more complex BSDFs possible.
-                let world_to_surface = unsafe {
-                    Rot3::new_with_mat(Mat3::new(
-                        tangent.x, tangent.y, tangent.z,
-                        binormal.x, binormal.y, binormal.z,
-                        normal.x, normal.y, normal.z
-                    ))
-                };
-
                 let p = *ray.orig() + *ray.dir() * toi;
-
-                // TODO: attenuate amount of light energy
-                // reflected from the surface
-                let material = &node.material;
-                let c = material.get_surface().sample(
-                    ray.dir(),
-                    &p,
-                    &normal,
-                    &material.get_texture().sample(uvs.x, uvs.y),
-                    self,
-                    depth);
-                colour = colour + c;
+                Some(Intersection::new(p, normal, node.material.get_bsdf(&normal)))
             },
-            None => {}
+            None => None
         }
-        colour
     }
+
+    // pub fn get_nearest_intersection_with(&self, ray: &Ray3<f64>)
+
+    // pub fn trace(&self, ray: &Ray, depth: u32) -> Spectrum {
+    //     let mut colour: Spectrum = na::zero();
+    //     let mut intersections = Vec::new();
+    //     {
+    //         // we define a scope here so that visitor (which takes a mutable
+    //         // borrow of the intersections vector) is dropped before we need
+    //         // to take another borrow of the intersections vector later on
+    //         let mut visitor = RayInterferencesCollector::new(&ray.ray, &mut intersections);
+    //         self.world.visit(&mut visitor);
+    //     }
+
+    //     // cast a ray towards the light to see if this point
+    //     // should receive any luminance from it
+    //     // update: this is not a great idea for the naive
+    //     // lighting method in this case as points further away
+    //     // from the light on a sphere might intersect the sphere
+    //     // itself and interfere with the calculations
+    //     // when geometry is used to represent a light this
+    //     // won't be as much of an issue along with using
+    //     // ray differentials
+    //     match get_nearest(ray, &intersections) {
+    //         Some((ref node, toi, normal, uvs)) => {
+    //             let (tangent, binormal) = math::coordinate_system(&normal);
+
+    //             // With this transform matrix we can put
+    //             // incident and outgoing vectors into the
+    //             // surface's coordinate space, which will
+    //             // make more complex BSDFs possible.
+    //             let world_to_surface = unsafe {
+    //                 Rot3::new_with_mat(Mat3::new(
+    //                     tangent.x, tangent.y, tangent.z,
+    //                     binormal.x, binormal.y, binormal.z,
+    //                     normal.x, normal.y, normal.z
+    //                 ))
+    //             };
+
+    //             let p = *ray.orig() + *ray.dir() * toi;
+
+    //             // TODO: attenuate amount of light energy
+    //             // reflected from the surface
+    //             let material = &node.material;
+    //             let c = material.get_surface().sample(
+    //                 ray.dir(),
+    //                 &p,
+    //                 &normal,
+    //                 &material.get_texture().sample(uvs.x, uvs.y),
+    //                 self,
+    //                 depth);
+    //             colour = colour + c;
+    //         },
+    //         None => {}
+    //     }
+    //     colour
+    // }
 }

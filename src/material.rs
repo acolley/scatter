@@ -3,36 +3,40 @@ use std::ops::{Deref};
 
 use na::{Vec3};
 
-use surface::{SurfaceIntegrator};
+use bxdf::{BSDF, Diffuse, SpecularReflection};
 use texture::{Texture};
 
 pub trait Material {
-    fn get_surface<'a>(&'a self) -> &'a SurfaceIntegrator;
-    fn get_texture<'a>(&'a self) -> &'a Texture;
+    fn get_bsdf(&self, normal: &Vec3<f64>) -> BSDF;
 }
 
-pub struct StandardMaterial {
-    pub surface: Box<SurfaceIntegrator>,
+pub struct DiffuseMaterial {
     pub texture: Box<Texture>
 }
 
-impl StandardMaterial {
-    pub fn new<T: 'static + Texture, S: 'static + SurfaceIntegrator>(
-        surface: Box<S>,
-        texture: Box<T>) -> StandardMaterial {
-        StandardMaterial {
-            surface : surface as Box<SurfaceIntegrator>,
+impl DiffuseMaterial {
+    pub fn new<T: 'static + Texture>(
+        texture: Box<T>) -> DiffuseMaterial {
+        DiffuseMaterial {
             texture : texture as Box<Texture>
         }
     }
 }
 
-impl Material for StandardMaterial {
-    fn get_surface<'a>(&'a self) -> &'a SurfaceIntegrator {
-        self.surface.deref()
+impl Material for DiffuseMaterial {
+    fn get_bsdf(&self, normal: &Vec3<f64>) -> BSDF {
+        let mut bsdf = BSDF::new(*normal);
+        bsdf.add_bxdf(Box::new(Diffuse));
+        bsdf
     }
+}
 
-    fn get_texture<'a>(&'a self) -> &'a Texture {
-        self.texture.deref()
+pub struct SpecularMaterial;
+
+impl Material for SpecularMaterial {
+    fn get_bsdf(&self, normal: &Vec3<f64>) -> BSDF {
+        let mut bsdf = BSDF::new(*normal);
+        bsdf.add_bxdf(Box::new(SpecularReflection));
+        bsdf
     }
 }
