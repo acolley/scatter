@@ -154,7 +154,7 @@ impl Scene {
         match get_nearest(ray, &intersections) {
             Some((ref node, toi, normal, uvs)) => {
                 let p = *ray.orig() + *ray.dir() * toi;
-                Some(Intersection::new(p, normal, node.material.get_bsdf(&normal)))
+                Some(Intersection::new(p, normal, node.material.get_bsdf(&normal, &uvs)))
             },
             None => None
         }

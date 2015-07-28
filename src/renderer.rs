@@ -3,24 +3,24 @@ use na;
 use na::{Pnt3, Vec3};
 use ncollide::ray::{Ray3};
 
-use bxdf::{BSDF_REFLECTION, BSDF_TRANSMISSION};
+use bxdf::{BSDF_ALL, BSDF_REFLECTION, BSDF_TRANSMISSION};
 use ray::{Ray};
 use scene::{Intersection, Scene};
 use spectrum::{Spectrum};
 
-/// Integrate over direct lighting at a surface point.
-/// Direct lighting is ignored for perfect mirrors or
-/// perfectly transmissive materials.
+/// Integrate over direct lighting at a surface point
+/// sampling the BSDF at the intersection.
 pub fn sample_lights(wo: &Vec3<f64>, 
                      isect: &Intersection,
                      scene: &Scene) -> Spectrum {
+    let bsdf = &isect.bsdf;
     let mut L = na::zero();
     for light in &scene.lights {
         let (li, wi) = light.sample(&isect.point);
         if li != na::zero() && !light.shadow(&isect.point, scene) {
             let dot: f64 = na::dot(&isect.normal, &wi);
             if dot > 0.0 {
-                L = L + li * dot;
+                L = L + bsdf.f(wo, &wi, BSDF_ALL) * li * dot;
             }
         }
     }

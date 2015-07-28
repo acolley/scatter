@@ -39,7 +39,17 @@ pub trait BxDF {
     }
 }
 
-pub struct Diffuse;
+pub struct Diffuse {
+    colour: Spectrum
+}
+
+impl Diffuse {
+    pub fn new(colour: Spectrum) -> Diffuse {
+        Diffuse {
+            colour : colour
+        }
+    }
+}
 
 impl BxDF for Diffuse {
     fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> f64 { 0.0 }
@@ -48,8 +58,9 @@ impl BxDF for Diffuse {
         (na::zero(), na::zero(), self.pdf(wo, &na::zero()))
     }
 
-    fn f(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> Spectrum {
-        na::zero()
+    /// diffuse surfaces emit the same amount of light in all directions
+    fn f(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Spectrum {
+        self.colour
     }
 
     #[inline]
@@ -106,7 +117,8 @@ impl BxDF for SpecularTransmission {
 
     /// wi: Incident light direction in local space
     /// wo: Outgoing light direction in local space
-    fn f(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> Spectrum {
+    fn f(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Spectrum {
+        // TODO: implement this
         na::zero()
     }
 
