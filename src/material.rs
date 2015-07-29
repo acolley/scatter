@@ -3,7 +3,7 @@ use std::ops::{Deref};
 
 use na::{Pnt2, Vec3};
 
-use bxdf::{BSDF, Diffuse, SpecularReflection};
+use bxdf::{BSDF, Diffuse, FresnelDielectric, SpecularReflection};
 use texture::{Texture};
 
 pub trait Material {
@@ -32,12 +32,15 @@ impl Material for DiffuseMaterial {
     }
 }
 
-pub struct SpecularMaterial;
+pub struct GlassMaterial;
 
-impl Material for SpecularMaterial {
+impl Material for GlassMaterial {
     fn get_bsdf(&self, normal: &Vec3<f64>, _: &Pnt2<f64>) -> BSDF {
         let mut bsdf = BSDF::new(*normal);
-        bsdf.add_bxdf(Box::new(SpecularReflection));
+        // n2 for glass is 1.5
+        bsdf.add_bxdf(Box::new(
+            SpecularReflection::new(Vec3::new(1.0, 1.0, 1.0), 
+                                    Box::new(FresnelDielectric::new(1.0, 1.5)))));
         bsdf
     }
 }

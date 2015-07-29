@@ -6,6 +6,7 @@ use na;
 use na::{Mat3, Norm, Pnt3, Rot3, Transform, Vec3};
 use ncollide::ray::{Ray3};
 
+use math::{Clamp, reflect};
 use scene::{Scene};
 
 bitflags! {
@@ -25,6 +26,20 @@ bitflags! {
         const BSDF_ALL              = BSDF_ALL_REFLECTION.bits
                                       | BSDF_ALL_TRANSMISSION.bits
     }
+}
+
+/// Return Cos Theta for a normalized vector
+/// in normal space.
+fn cos_theta(v: &Vec3<f64>) -> f64 {
+    v.z
+}
+
+fn sin_theta2(v: &Vec3<f64>) -> f64 {
+    f64::max(0.0, 1.0 - cos_theta(v)*cos_theta(v))
+}
+
+fn sin_theta(v: &Vec3<f64>) -> f64 {
+    sin_theta2(v).sqrt()
 }
 
 pub trait BxDF {
@@ -73,24 +88,40 @@ impl BxDF for Diffuse {
 /// Distribution Function for Specular Reflection.
 /// This models the amount of incident
 /// light reflected from a surface and in what direction(s).
-pub struct SpecularReflection;
+pub struct SpecularReflection {
+    R: Spectrum,
+    // we store a trait object here as a reflective surface
+    // can be something that has reflection and/or transmission
+    // (e.g. metal or frosted glass)
+    fresnel: Box<Fresnel>
+}
+
+impl SpecularReflection {
+    pub fn new<F: 'static + Fresnel>(R: Spectrum, fresnel: Box<F>) -> SpecularReflection {
+        SpecularReflection {
+            R : R,
+            fresnel : fresnel as Box<Fresnel>
+        }
+    }
+}
 
 impl BxDF for SpecularReflection {
-    fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> f64 {
-        // TODO: implement this
-        0.0
-    }
+    /// The Probability Distribution Function for use in
+    /// Monte Carlo sampling.
+    fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> f64 { 0.0 }
 
     fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, f64) {
-        let n = Vec3::z();
-        let mut wi = *wo - n * 2.0 * (na::dot(wo, &n));
-        wi.normalize_mut();
-        (na::zero(), wi, self.pdf(wo, &wi))
+        // just return wi for now
+        // let n = Vec3::z();
+        // let wi = reflect(wo, &n);
+        let wi = Vec3::new(-wo.x, -wo.y, wo.z);
+        let L = self.fresnel.evaluate(cos_theta(wo)) * self.R / cos_theta(&wi).abs();
+        (L, wi, 1.0)
     }
 
-    fn f(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> Spectrum {
-        na::zero()
-    }
+    /// Specular reflection only produces light in a single direction
+    /// given by the sample_f method
+    fn f(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Spectrum { na::zero() }
 
     #[inline]
     fn bxdf_type(&self) -> BxDFType {
@@ -102,25 +133,62 @@ impl BxDF for SpecularReflection {
 /// Distribution Function for Specular Transmission. 
 /// This models the amount of incident
 /// light transmitted through the surface and in what direction(s).
-pub struct SpecularTransmission;
+pub struct SpecularTransmission {
+    T: Spectrum,
+    etai: f64,
+    etat: f64,
+    fresnel: FresnelDielectric
+}
+
+impl SpecularTransmission {
+    pub fn new(T: Spectrum, etai: f64, etat: f64) -> SpecularTransmission {
+        SpecularTransmission {
+            T : T,
+            etai : etai,
+            etat : etat,
+            fresnel : FresnelDielectric::new(etai, etat)
+        }
+    }
+}
 
 impl BxDF for SpecularTransmission {
-    fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> f64 {
-        // TODO: implement this
-        0.0
-    }
+    fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> f64 { 0.0 }
 
     fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, f64) {
-        // TODO: implement this
-        (na::zero(), na::zero(), self.pdf(wo, &na::zero()))
+        let entering = cos_theta(wo) > 0.0;
+        let (etai, etat) = if entering {
+            (self.etai, self.etat)
+        } else {
+            (self.etat, self.etai)
+        };
+
+        // calculate transmitted ray direction
+        let sini2 = sin_theta2(wo);
+        let eta = etai / etat;
+        let sint2 = eta * eta * sini2;
+
+        // total internal reflection
+        if sint2 > 1.0 {
+            return (na::zero(), na::zero(), 0.0);
+        }
+
+        let cost = if entering {
+            -f64::max(0.0, 1.0 - sint2)
+        } else {
+            f64::max(0.0, 1.0 - sint2)
+        };
+
+        let sint_over_sini = eta;
+        let wi = Vec3::new(sint_over_sini * -wo.x, sint_over_sini * -wo.y, cost);
+        let pdf = 1.0;
+        let F = self.fresnel.evaluate(cos_theta(wo));
+        let transmitted = (Vec3::new(1.0, 1.0, 1.0) - F) * self.T / cos_theta(&wi).abs();
+        (transmitted, wi, 1.0)
     }
 
-    /// wi: Incident light direction in local space
-    /// wo: Outgoing light direction in local space
-    fn f(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Spectrum {
-        // TODO: implement this
-        na::zero()
-    }
+    /// Specular transmission only produces light in a single direction
+    /// given by the sample_f method.
+    fn f(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Spectrum { na::zero() }
 
     #[inline]
     fn bxdf_type(&self) -> BxDFType {
@@ -215,5 +283,90 @@ impl BSDF {
             f = f + bxdf.f(&wi, &wo);
         }
         f
+    }
+}
+
+/// Return the amount of energy reflected from a dielectric
+/// surface (i.e. a non-conductor like glass).
+fn fr_diel(cosi: f64, cost: f64, etai: &Spectrum, etat: &Spectrum) -> Spectrum {
+    let rparl = ((*etat * cosi) - (*etai * cost)) /
+                ((*etat * cosi) + (*etai * cost));
+    let rperp = ((*etai * cosi) - (*etat * cost)) /
+                ((*etai * cosi) + (*etat * cost));
+    (rparl * rparl + rperp * rperp) / 2.0
+}
+
+/// Return the amount of energy reflected from a conductor.
+fn fr_cond(cosi: f64, eta: &Spectrum, k: &Spectrum) -> Spectrum {
+    let tmp = (*eta * *eta + *k * *k) * cosi * cosi;
+    let rparl2 = (tmp - (*eta * 2.0 * cosi) + 1.0) /
+                 (tmp + (*eta * 2.0 * cosi) + 1.0);
+    let tmp_f = *eta * *eta + *k * *k;
+    let rperp2 = (tmp_f - (*eta * 2.0 * cosi) + cosi * cosi) /
+                 (tmp_f + (*eta * 2.0 * cosi) + cosi * cosi);
+    (rparl2 + rperp2) / 2.0
+}
+
+pub trait Fresnel {
+    fn evaluate(&self, cosi: f64) -> Spectrum;
+}
+
+pub struct FresnelConductor {
+    eta: Spectrum,
+    k: Spectrum
+}
+
+impl FresnelConductor {
+    pub fn new(eta: Spectrum, k: Spectrum) -> FresnelConductor {
+        FresnelConductor {
+            eta : eta,
+            k : k
+        }
+    }
+}
+
+impl Fresnel for FresnelConductor {
+    fn evaluate(&self, cosi: f64) -> Spectrum {
+        fr_cond(cosi.abs(), &self.eta, &self.k)
+    }
+}
+
+pub struct FresnelDielectric {
+    etai: f64,
+    etat: f64
+}
+
+impl FresnelDielectric {
+    pub fn new(etai: f64, etat: f64) -> FresnelDielectric {
+        FresnelDielectric {
+            etai : etai,
+            etat : etat
+        }
+    }
+}
+
+impl Fresnel for FresnelDielectric {
+    fn evaluate(&self, cosi: f64) -> Spectrum {
+        let cosi = cosi.clamp(-1.0, 1.0);
+
+        // compute indices of refraction
+        let entering = cosi > 0.0;
+        let (etai, etat) = {
+            if entering {
+                (self.etai, self.etat)
+            } else {
+                (self.etat, self.etai)
+            }
+        };
+
+        // compute sint using Snell's law
+        let sint = etai / etat * f64::max(0.0, 1.0 - cosi*cosi).sqrt();
+        if sint > 1.0 {
+            // total internal reflection
+            Vec3::new(1.0, 1.0, 1.0)
+        } else {
+            let cost = f64::max(0.0, 1.0 - sint*sint).sqrt();
+            fr_diel(cosi.abs(), cost, &Vec3::new(etai, etai, etai), &Vec3::new(etat, etat, etat))
+        }
     }
 }

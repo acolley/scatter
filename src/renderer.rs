@@ -33,11 +33,13 @@ pub fn specular_reflect(ray: &Ray,
                         scene: &Scene,
                         renderer: &Renderer) -> Spectrum {
     let wo = -(*ray.dir());
+    let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let (_, wi, _) = bsdf.sample_f(&wo, BSDF_REFLECTION);
-    if wi != na::zero() {
-        let ray = Ray::new_with_depth(isect.point, -wi, ray.depth + 1);
-        renderer.render(&ray, scene)
+    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_REFLECTION);
+    if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
+        let ray = Ray::new_with_depth(isect.point, wi, ray.depth + 1);
+        let li = renderer.render(&ray, scene);
+        f * li * (na::dot(&wi, n) / pdf)
     } else {
         na::zero()
     }
@@ -49,9 +51,16 @@ pub fn specular_transmission(ray: &Ray,
                              scene: &Scene,
                              renderer: &Renderer) -> Spectrum {
     let wo = -(*ray.dir());
+    let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let(_, wi, _) = bsdf.sample_f(&wo, BSDF_TRANSMISSION);
-    na::zero()
+    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_TRANSMISSION);
+    if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
+        let ray = Ray::new_with_depth(isect.point, wi, ray.depth + 1);
+        let li = renderer.render(&ray, scene);
+        f * li * (na::dot(&wi, n) / pdf)
+    } else {
+        na::zero()
+    }
 }
 
 pub trait Renderer {

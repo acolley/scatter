@@ -33,7 +33,7 @@ mod texture;
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
 use light::{DirectionalLight, PointLight};
-use material::{Material, DiffuseMaterial, SpecularMaterial};
+use material::{Material, DiffuseMaterial, GlassMaterial};
 use renderer::{Renderer, StandardRenderer};
 use scene::{Intersection, Scene, SceneNode};
 use spectrum::{Spectrum};
@@ -86,18 +86,10 @@ fn setup(scene: &mut Scene) {
 
     let white = Vec3::new(1.0, 1.0, 1.0);
     let yellow = Vec3::new(1.0, 1.0, 0.5);
-    let material_yellow = Arc::new(
-        DiffuseMaterial::new(Box::new(ConstantTexture::new(yellow)))
-    );
-    let material_reflect = Arc::new(
-        SpecularMaterial
-    );
-    let material_white = Arc::new(
-        DiffuseMaterial::new(Box::new(ConstantTexture::new(white)))
-    );
-    let material_checker = Arc::new(
-        DiffuseMaterial::new(Box::new(ImageTexture::new(teximg.clone())))
-    );
+    let material_yellow = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(yellow))));
+    let material_reflect = Arc::new(GlassMaterial);
+    let material_white = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(white))));
+    let material_checker = Arc::new(DiffuseMaterial::new(Box::new(ImageTexture::new(teximg.clone()))));
 
     let transform = Iso3::new(Vec3::new(1.0, 0.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 

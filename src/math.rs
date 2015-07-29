@@ -1,6 +1,6 @@
 
 use na;
-use na::{ApproxEq, Vec3};
+use na::{ApproxEq, Norm, Vec3};
 
 pub fn coordinate_system(v1: &Vec3<f64>) -> (Vec3<f64>, Vec3<f64>) {
     let v2 = {
@@ -16,10 +16,47 @@ pub fn coordinate_system(v1: &Vec3<f64>) -> (Vec3<f64>, Vec3<f64>) {
     (v2, v3)
 }
 
+/// Reflect a vector `v` around an arbitrary normal vector
+/// `n`. The normal is assumed to be normalized.
+pub fn reflect(v: &Vec3<f64>, n: &Vec3<f64>) -> Vec3<f64> {
+    let mut reflected = *v - *n * 2.0 * (na::dot(v, n));
+    reflected.normalize_mut();
+    reflected
+}
+
+pub trait Clamp {
+    fn clamp(&self, min: Self, max: Self) -> Self;
+}
+
+impl Clamp for f64 {
+    fn clamp(&self, min: f64, max: f64) -> f64 {
+        assert!(min <= max);
+        if *self < min {
+            min
+        } else if *self > max {
+            max
+        } else {
+            *self
+        }
+    }
+}
+
 #[test]
 fn test_unit_y() {
     let vy = Vec3::y();
     let (vz, vx) = coordinate_system(&vy);
     assert_approx_eq!(vx, -Vec3::x());
     assert_approx_eq!(vz, -Vec3::z());
+}
+
+#[test]
+fn test_clamp_min_f64() {
+    let x = -2.0f64.clamp(-1.0, 1.0);
+    assert_eq!(x, -1.0);
+}
+
+#[test]
+fn test_clamp_max_f64() {
+    let x = 2.0f64.clamp(-1.0, 1.0);
+    assert_eq!(x, 1.0);
 }
