@@ -36,7 +36,7 @@ pub fn specular_reflect(ray: &Ray,
     let bsdf = &isect.bsdf;
     let (_, wi, _) = bsdf.sample_f(&wo, BSDF_REFLECTION);
     if wi != na::zero() {
-        let ray = Ray::new_with_depth(isect.point, -wi, ray.depth + 1);
+        let ray = Ray::new_with_depth(isect.point, wi, ray.depth + 1);
         renderer.render(&ray, scene)
     } else {
         na::zero()

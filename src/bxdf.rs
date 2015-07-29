@@ -82,9 +82,10 @@ impl BxDF for SpecularReflection {
     }
 
     fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, f64) {
-        let n = Vec3::z();
-        let mut wi = *wo - n * 2.0 * (na::dot(wo, &n));
-        wi.normalize_mut();
+        // let n = Vec3::z();
+        // let mut wi = *wo - n * 2.0 * (na::dot(wo, &n));
+        let wi = Vec3::new(-wo.x, -wo.y, wo.z);
+        // wi.normalize_mut();
         (na::zero(), wi, self.pdf(wo, &wi))
     }
 
