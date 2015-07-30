@@ -111,9 +111,6 @@ impl BxDF for SpecularReflection {
     fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> f64 { 0.0 }
 
     fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, f64) {
-        // just return wi for now
-        // let n = Vec3::z();
-        // let wi = reflect(wo, &n);
         let wi = Vec3::new(-wo.x, -wo.y, wo.z);
         let L = self.fresnel.evaluate(cos_theta(wo)) * self.R / cos_theta(&wi).abs();
         (L, wi, 1.0)
@@ -125,7 +122,7 @@ impl BxDF for SpecularReflection {
 
     #[inline]
     fn bxdf_type(&self) -> BxDFType {
-        BSDF_REFLECTION
+        BSDF_REFLECTION | BSDF_SPECULAR
     }
 }
 
@@ -180,7 +177,6 @@ impl BxDF for SpecularTransmission {
 
         let sint_over_sini = eta;
         let wi = Vec3::new(sint_over_sini * -wo.x, sint_over_sini * -wo.y, cost);
-        let pdf = 1.0;
         let F = self.fresnel.evaluate(cos_theta(wo));
         let transmitted = (Vec3::new(1.0, 1.0, 1.0) - F) * self.T / cos_theta(&wi).abs();
         (transmitted, wi, 1.0)
@@ -192,7 +188,7 @@ impl BxDF for SpecularTransmission {
 
     #[inline]
     fn bxdf_type(&self) -> BxDFType {
-        BSDF_TRANSMISSION
+        BSDF_TRANSMISSION | BSDF_SPECULAR
     }
 }
 

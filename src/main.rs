@@ -33,10 +33,9 @@ mod texture;
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
 use light::{DirectionalLight, PointLight};
-use material::{Material, DiffuseMaterial, GlassMaterial};
+use material::{DiffuseMaterial, GlassMaterial, MirrorMaterial};
 use renderer::{Renderer, StandardRenderer};
-use scene::{Intersection, Scene, SceneNode};
-use spectrum::{Spectrum};
+use scene::{Scene, SceneNode};
 use texture::{ConstantTexture, ImageTexture};
 
 fn sample(x: f64,
@@ -87,7 +86,8 @@ fn setup(scene: &mut Scene) {
     let white = Vec3::new(1.0, 1.0, 1.0);
     let yellow = Vec3::new(1.0, 1.0, 0.5);
     let material_yellow = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(yellow))));
-    let material_reflect = Arc::new(GlassMaterial);
+    let material_glass = Arc::new(GlassMaterial);
+    let material_reflect = Arc::new(MirrorMaterial);
     let material_white = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(white))));
     let material_checker = Arc::new(DiffuseMaterial::new(Box::new(ImageTexture::new(teximg.clone()))));
 
@@ -98,13 +98,13 @@ fn setup(scene: &mut Scene) {
 
     let transform = Iso3::new(Vec3::new(-4.0, 3.0, 10.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
-                                           material_reflect.clone(),
+                                           material_glass.clone(),
                                            Box::new(Ball::new(2.0)))));
 
-    let transform = Iso3::new(Vec3::new(-0.5, -1.0, 7.0), Vec3::new(0.0, 0.0, consts::PI / 4.0));
-    scene.add_node(Arc::new(SceneNode::new(transform,
-                                           material_reflect.clone(),
-                                           Box::new(Cuboid::new(Vec3::new(0.5, 0.5, 0.5))))));
+    // let transform = Iso3::new(Vec3::new(-0.5, -1.0, 7.0), Vec3::new(0.0, 0.0, consts::PI / 4.0));
+    // scene.add_node(Arc::new(SceneNode::new(transform,
+    //                                        material_reflect.clone(),
+    //                                        Box::new(Cuboid::new(Vec3::new(0.5, 0.5, 0.5))))));
 
     let transform = Iso3::new(Vec3::new(-1.0, -2.0, 5.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
