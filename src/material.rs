@@ -38,16 +38,16 @@ pub struct GlassMaterial;
 impl Material for GlassMaterial {
     fn get_bsdf(&self, normal: &Vec3<f64>, _: &Pnt2<f64>) -> BSDF {
         let mut bsdf = BSDF::new(*normal);
-        // n2 for glass is 1.5
+        // refractive index for glass is 1.5
         bsdf.add_bxdf(Box::new(
             SpecularTransmission::new(
                 Vec3::new(1.0, 1.0, 1.0), 
                 1.0,
                 1.5)));
-        // bsdf.add_bxdf(Box::new(
-        //     SpecularReflection::new(
-        //         Vec3::new(1.0, 1.0, 1.0),
-        //         Box::new(FresnelDielectric::new(1.0, 1.5)))));
+        bsdf.add_bxdf(Box::new(
+            SpecularReflection::new(
+                Vec3::new(1.0, 1.0, 1.0),
+                Box::new(FresnelDielectric::new(1.0, 1.5)))));
         bsdf
     }
 }
