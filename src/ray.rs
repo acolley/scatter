@@ -1,4 +1,6 @@
 
+use uuid::{Uuid};
+
 use na::{Pnt3, Vec3};
 use ncollide::ray::{Ray3};
 
@@ -9,10 +11,7 @@ pub struct Ray {
 
 impl Ray {
     pub fn new(orig: Pnt3<f64>, dir: Vec3<f64>) -> Ray {
-        Ray {
-            ray : Ray3::new(orig, dir),
-            depth : 0
-        }
+        Self::new_with_depth(orig, dir, 0)
     }
 
     pub fn new_with_depth(orig: Pnt3<f64>, dir: Vec3<f64>, depth: i32) -> Ray {

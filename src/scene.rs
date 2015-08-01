@@ -78,7 +78,10 @@ fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneN
                 // check toi is greater than zero to rule out intersection
                 // with the node whose surface we're casting a ray from
                 // Note: this is not 100% reliable I don't think
-                if isect.toi > 0.0000001 && isect.toi < nearest_toi {
+                // this in tandem with code in renderer for casting reflection
+                // and transmission rays slightly off the point on the surface
+                // they came from should hopefully prevent artifacts
+                if isect.toi > 0.0 && isect.toi < nearest_toi {
                     nearest_node = Some(node);
                     nearest_toi = isect.toi;
                     nearest_normal = isect.normal;

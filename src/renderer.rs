@@ -3,7 +3,7 @@ use na;
 use na::{Pnt3, Vec3};
 use ncollide::ray::{Ray3};
 
-use bxdf::{BSDF_ALL, BSDF_REFLECTION, BSDF_TRANSMISSION};
+use bxdf::{BSDF_ALL, BSDF_REFLECTION, BSDF_SPECULAR, BSDF_TRANSMISSION};
 use ray::{Ray};
 use scene::{Intersection, Scene};
 use spectrum::{Spectrum};
@@ -33,11 +33,16 @@ pub fn specular_reflect(ray: &Ray,
                         scene: &Scene,
                         renderer: &Renderer) -> Spectrum {
     let wo = -(*ray.dir());
+    let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let (_, wi, _) = bsdf.sample_f(&wo, BSDF_REFLECTION);
-    if wi != na::zero() {
-        let ray = Ray::new_with_depth(isect.point, wi, ray.depth + 1);
-        renderer.render(&ray, scene)
+    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_REFLECTION);
+    if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
+        // move the ray origin forward by a small amount in its direction
+        // to avoid intersection with the surface we just came from
+        let ray = Ray::new_with_depth(isect.point + wi * 0.000000000001, wi, ray.depth + 1);
+        let li = renderer.render(&ray, scene);
+        let L = f * li * (na::dot(&wi, n).abs() / pdf);
+        L
     } else {
         na::zero()
     }
@@ -49,9 +54,19 @@ pub fn specular_transmission(ray: &Ray,
                              scene: &Scene,
                              renderer: &Renderer) -> Spectrum {
     let wo = -(*ray.dir());
+    let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let(_, wi, _) = bsdf.sample_f(&wo, BSDF_TRANSMISSION);
-    na::zero()
+    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_TRANSMISSION);
+    if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
+        // move the ray origin forward by a small amount in its direction
+        // to avoid intersection with the surface we just came from
+        let ray = Ray::new_with_depth(isect.point + wi * 0.000000000001, wi, ray.depth + 1);
+        let li = renderer.render(&ray, scene);
+        let L = f * li * (na::dot(&wi, n).abs() / pdf);
+        L
+    } else {
+        na::zero()
+    }
 }
 
 pub trait Renderer {
