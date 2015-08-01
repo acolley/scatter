@@ -200,11 +200,7 @@ pub struct BSDF {
 
 impl BSDF {
     pub fn new(normal: Vec3<f64>) -> BSDF {
-        BSDF {
-            normal : normal,
-            world_to_local : BSDF::world_to_local_from_normal(&normal),
-            bxdfs : Vec::new()
-        }
+        Self::new_with_bxdfs(normal, Vec::new())
     }
 
     pub fn new_with_bxdfs(normal: Vec3<f64>, bxdfs: Vec<Box<BxDF>>) -> BSDF {

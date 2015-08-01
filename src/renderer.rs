@@ -37,7 +37,9 @@ pub fn specular_reflect(ray: &Ray,
     let bsdf = &isect.bsdf;
     let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_REFLECTION);
     if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
-        let ray = Ray::new_with_depth(isect.point, wi, ray.depth + 1);
+        // move the ray origin forward by a small amount in its direction
+        // to avoid intersection with the surface we just came from
+        let ray = Ray::new_with_depth(isect.point + wi * 0.000000000001, wi, ray.depth + 1);
         let li = renderer.render(&ray, scene);
         let L = f * li * (na::dot(&wi, n).abs() / pdf);
         L
@@ -56,7 +58,9 @@ pub fn specular_transmission(ray: &Ray,
     let bsdf = &isect.bsdf;
     let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_TRANSMISSION);
     if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
-        let ray = Ray::new_with_depth(isect.point, wi, ray.depth + 1);
+        // move the ray origin forward by a small amount in its direction
+        // to avoid intersection with the surface we just came from
+        let ray = Ray::new_with_depth(isect.point + wi * 0.000000000001, wi, ray.depth + 1);
         let li = renderer.render(&ray, scene);
         let L = f * li * (na::dot(&wi, n).abs() / pdf);
         L

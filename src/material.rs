@@ -44,10 +44,10 @@ impl Material for GlassMaterial {
                 Vec3::new(1.0, 1.0, 1.0), 
                 1.0,
                 1.5)));
-        bsdf.add_bxdf(Box::new(
-            SpecularReflection::new(
-                Vec3::new(1.0, 1.0, 1.0),
-                Box::new(FresnelDielectric::new(1.0, 1.5)))));
+        // bsdf.add_bxdf(Box::new(
+        //     SpecularReflection::new(
+        //         Vec3::new(1.0, 1.0, 1.0),
+        //         Box::new(FresnelDielectric::new(1.0, 1.5)))));
         bsdf
     }
 }

@@ -3,6 +3,7 @@ extern crate bitflags;
 extern crate clap;
 extern crate image;
 extern crate rand;
+extern crate rustc_serialize;
 extern crate uuid;
 #[macro_use(assert_approx_eq)]
 extern crate nalgebra as na;
@@ -101,10 +102,10 @@ fn setup(scene: &mut Scene) {
                                            material_glass.clone(),
                                            Box::new(Ball::new(2.0)))));
 
-    // let transform = Iso3::new(Vec3::new(-0.5, -1.0, 7.0), Vec3::new(0.0, 0.0, consts::PI / 4.0));
-    // scene.add_node(Arc::new(SceneNode::new(transform,
-    //                                        material_reflect.clone(),
-    //                                        Box::new(Cuboid::new(Vec3::new(0.5, 0.5, 0.5))))));
+    let transform = Iso3::new(Vec3::new(-0.5, -1.0, 7.0), Vec3::new(0.0, 0.0, consts::PI / 4.0));
+    scene.add_node(Arc::new(SceneNode::new(transform,
+                                           material_reflect.clone(),
+                                           Box::new(Cuboid::new(Vec3::new(0.5, 0.5, 0.5))))));
 
     let transform = Iso3::new(Vec3::new(-1.0, -2.0, 5.0), na::zero());
     scene.add_node(Arc::new(SceneNode::new(transform, 
@@ -147,8 +148,8 @@ fn setup(scene: &mut Scene) {
     // scene.add_light(dir_light);
     // let pnt_light_red = Box::new(PointLight::new(1.0, Vec3::new(1.0, 0.0, 0.0), Pnt3::new(10.0, 0.0, 0.0), 500.0));
     // scene.add_light(pnt_light_red);
-    // let pnt_light_green = Box::new(PointLight::new(1.0, Vec3::new(0.0, 1.0, 0.0), Pnt3::new(0.0, 5.0, 0.0), 500.0));
-    // scene.add_light(pnt_light_green);
+    let pnt_light_green = Box::new(PointLight::new(1.0, Vec3::new(0.0, 1.0, 0.0), Pnt3::new(-20.0, 5.0, 20.0), 20.0));
+    scene.add_light(pnt_light_green);
     // let pnt_light_blue = Box::new(PointLight::new(1.0, Vec3::new(0.0, 0.0, 1.0), Pnt3::new(0.0, 15.0, 10.0), 500.0));
     // scene.add_light(pnt_light_blue);
     let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(0.0, 25.0, 0.0), 600.0));
@@ -186,7 +187,7 @@ fn main() {
     let height = matches.value_of("HEIGHT").unwrap_or("100").parse::<u32>().ok().expect("Value for height is not a valid unsigned integer");
     let samples = matches.value_of("SAMPLES").unwrap_or("3").parse::<u32>().ok().expect("Value for samples is not a valid unsigned integer");
     assert!(samples > 0);
-    let depth = matches.value_of("DEPTH").unwrap_or("2").parse::<i32>().ok().expect("Value for depth is not a valid unsigned integer");
+    let depth = matches.value_of("DEPTH").unwrap_or("6").parse::<i32>().ok().expect("Value for depth is not a valid unsigned integer");
 
     let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, 0.0), na::zero()), width, height, 45.0, 1.0, 100000.0);
     camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
