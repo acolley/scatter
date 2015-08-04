@@ -18,7 +18,7 @@ use self::na::{Iso3, Pnt3, Vec3, Translate};
 use ncollide::ray::{Ray3};
 use ncollide::shape::{Ball, Cuboid};
 use ncollide::math::{Point};
-use ncollide::bounding_volume::{BoundingSphere, HasBoundingSphere};
+use ncollide::bounding_volume::{BoundingSphere};
 
 mod bxdf;
 mod camera;
@@ -202,7 +202,7 @@ fn main() {
 
     let colours = render(width, height, samples, &camera, &mut scene, &renderer);
 
-    let filename = matches.value_of("OUTPUT").unwrap_or("pbrt.png");
+    let filename = matches.value_of("OUTPUT").unwrap_or("scatter.png");
     let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");
     let img = image::ImageBuffer::from_raw(width, height, colours).expect("Could not create image buffer");
     let _ = image::ImageRgb8(img).save(out, image::PNG);

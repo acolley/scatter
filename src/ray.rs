@@ -1,6 +1,4 @@
 
-use uuid::{Uuid};
-
 use na::{Pnt3, Vec3};
 use ncollide::ray::{Ray3};
 

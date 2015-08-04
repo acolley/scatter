@@ -3,11 +3,9 @@ use math;
 use spectrum::{Spectrum};
 
 use na;
-use na::{Mat3, Norm, Pnt3, Rot3, Transform, Vec3};
-use ncollide::ray::{Ray3};
+use na::{Mat3, Rot3, Transform, Vec3};
 
-use math::{Clamp, reflect};
-use scene::{Scene};
+use math::{Clamp};
 
 bitflags! {
     flags BxDFType: u32 {
@@ -54,19 +52,19 @@ pub trait BxDF {
     }
 }
 
-pub struct Diffuse {
+pub struct Lambertian {
     colour: Spectrum
 }
 
-impl Diffuse {
-    pub fn new(colour: Spectrum) -> Diffuse {
-        Diffuse {
+impl Lambertian {
+    pub fn new(colour: Spectrum) -> Lambertian {
+        Lambertian {
             colour : colour
         }
     }
 }
 
-impl BxDF for Diffuse {
+impl BxDF for Lambertian {
     fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> f64 { 0.0 }
 
     fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, f64) {
@@ -80,7 +78,7 @@ impl BxDF for Diffuse {
 
     #[inline]
     fn bxdf_type(&self) -> BxDFType {
-        BSDF_DIFFUSE
+        BSDF_DIFFUSE | BSDF_REFLECTION
     }
 }
 
@@ -89,7 +87,7 @@ impl BxDF for Diffuse {
 /// This models the amount of incident
 /// light reflected from a surface and in what direction(s).
 pub struct SpecularReflection {
-    R: Spectrum,
+    r: Spectrum,
     // we store a trait object here as a reflective surface
     // can be something that has reflection and/or transmission
     // (e.g. metal or frosted glass)
@@ -97,9 +95,9 @@ pub struct SpecularReflection {
 }
 
 impl SpecularReflection {
-    pub fn new<F: 'static + Fresnel>(R: Spectrum, fresnel: Box<F>) -> SpecularReflection {
+    pub fn new<F: 'static + Fresnel>(r: Spectrum, fresnel: Box<F>) -> SpecularReflection {
         SpecularReflection {
-            R : R,
+            r : r,
             fresnel : fresnel as Box<Fresnel>
         }
     }
@@ -108,12 +106,12 @@ impl SpecularReflection {
 impl BxDF for SpecularReflection {
     /// The Probability Distribution Function for use in
     /// Monte Carlo sampling.
-    fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> f64 { 0.0 }
+    fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> f64 { 0.0 }
 
     fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, f64) {
         let wi = Vec3::new(-wo.x, -wo.y, wo.z);
-        let L = self.fresnel.evaluate(cos_theta(wo)) * self.R / cos_theta(&wi).abs();
-        (L, wi, 1.0)
+        let l = self.fresnel.evaluate(cos_theta(wo)) * self.r / cos_theta(&wi).abs();
+        (l, wi, 1.0)
     }
 
     /// Specular reflection only produces light in a single direction
@@ -131,16 +129,16 @@ impl BxDF for SpecularReflection {
 /// This models the amount of incident
 /// light transmitted through the surface and in what direction(s).
 pub struct SpecularTransmission {
-    T: Spectrum,
+    t: Spectrum,
     etai: f64,
     etat: f64,
     fresnel: FresnelDielectric
 }
 
 impl SpecularTransmission {
-    pub fn new(T: Spectrum, etai: f64, etat: f64) -> SpecularTransmission {
+    pub fn new(t: Spectrum, etai: f64, etat: f64) -> SpecularTransmission {
         SpecularTransmission {
-            T : T,
+            t : t,
             etai : etai,
             etat : etat,
             fresnel : FresnelDielectric::new(etai, etat)
@@ -149,7 +147,7 @@ impl SpecularTransmission {
 }
 
 impl BxDF for SpecularTransmission {
-    fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> f64 { 0.0 }
+    fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> f64 { 0.0 }
 
     fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, f64) {
         let entering = cos_theta(wo) > 0.0;
@@ -177,8 +175,8 @@ impl BxDF for SpecularTransmission {
 
         let sint_over_sini = eta;
         let wi = Vec3::new(sint_over_sini * -wo.x, sint_over_sini * -wo.y, cost);
-        let F = self.fresnel.evaluate(cos_theta(wo));
-        let transmitted = (Vec3::new(1.0, 1.0, 1.0) - F) * self.T / cos_theta(&wi).abs();
+        let f = self.fresnel.evaluate(cos_theta(wo));
+        let transmitted = (Vec3::new(1.0, 1.0, 1.0) - f) * self.t / cos_theta(&wi).abs();
         (transmitted, wi, 1.0)
     }
 

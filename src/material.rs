@@ -1,10 +1,8 @@
 
-use std::ops::{Deref};
-
 use na;
 use na::{Pnt2, Vec3};
 
-use bxdf::{BSDF, Diffuse, FresnelConductor, FresnelDielectric, SpecularReflection, SpecularTransmission};
+use bxdf::{BSDF, Lambertian, FresnelConductor, FresnelDielectric, SpecularReflection, SpecularTransmission};
 use texture::{Texture};
 
 pub trait Material {
@@ -28,7 +26,7 @@ impl Material for DiffuseMaterial {
     fn get_bsdf(&self, normal: &Vec3<f64>, uvs: &Pnt2<f64>) -> BSDF {
         let mut bsdf = BSDF::new(*normal);
         let f = self.texture.sample(uvs.x, uvs.y);
-        bsdf.add_bxdf(Box::new(Diffuse::new(f)));
+        bsdf.add_bxdf(Box::new(Lambertian::new(f)));
         bsdf
     }
 }

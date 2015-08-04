@@ -1,6 +1,6 @@
 
 use na;
-use na::{ApproxEq, Norm, Vec3};
+use na::{Norm, Vec3};
 
 pub fn coordinate_system(v1: &Vec3<f64>) -> (Vec3<f64>, Vec3<f64>) {
     let v2 = {

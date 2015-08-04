@@ -4,7 +4,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use na;
-use na::{Iso3, Mat3, Pnt2, Pnt3, Rot3, Vec3};
+use na::{Iso3, Pnt2, Pnt3, Vec3};
 use ncollide::bounding_volume::{AABB3, HasAABB};
 use ncollide::partitioning::{DBVT};
 use ncollide::ray::{RayCast, RayInterferencesCollector};
@@ -12,10 +12,7 @@ use ncollide::ray::{RayCast, RayInterferencesCollector};
 use bxdf::{BSDF};
 use light::{Light};
 use material::{Material};
-use math;
 use ray::{Ray};
-use spectrum::{Spectrum};
-use texture::{Texture};
 
 /// Structure representing an object in the 
 /// world that can be shaded.

@@ -1,7 +1,6 @@
 
 use na;
-use na::{Pnt3, Vec3};
-use ncollide::ray::{Ray3};
+use na::{Vec3};
 
 use bxdf::{BSDF_ALL, BSDF_REFLECTION, BSDF_SPECULAR, BSDF_TRANSMISSION};
 use ray::{Ray};
@@ -14,17 +13,17 @@ pub fn sample_lights(wo: &Vec3<f64>,
                      isect: &Intersection,
                      scene: &Scene) -> Spectrum {
     let bsdf = &isect.bsdf;
-    let mut L = na::zero();
+    let mut l = na::zero();
     for light in &scene.lights {
         let (li, wi) = light.sample(&isect.point);
-        if li != na::zero() && !light.shadow(&isect.point, scene) {
-            let dot: f64 = na::dot(&isect.normal, &wi);
-            if dot > 0.0 {
-                L = L + bsdf.f(wo, &wi, BSDF_ALL) * li * dot;
+        if li != na::zero() {
+            let f = bsdf.f(wo, &wi, BSDF_ALL);
+            if f != na::zero() && !light.shadow(&isect.point, scene) {
+                l = l + f * li * na::dot(&isect.normal, &wi);
             }
         }
     }
-    L
+    l
 }
 
 /// Find the specular reflection component at a surface point.
@@ -35,14 +34,14 @@ pub fn specular_reflect(ray: &Ray,
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_REFLECTION);
+    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_REFLECTION | BSDF_SPECULAR);
     if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
         // move the ray origin forward by a small amount in its direction
         // to avoid intersection with the surface we just came from
         let ray = Ray::new_with_depth(isect.point + wi * 0.000000000001, wi, ray.depth + 1);
         let li = renderer.render(&ray, scene);
-        let L = f * li * (na::dot(&wi, n).abs() / pdf);
-        L
+        let l = f * li * (na::dot(&wi, n).abs() / pdf);
+        l
     } else {
         na::zero()
     }
@@ -56,14 +55,14 @@ pub fn specular_transmission(ray: &Ray,
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_TRANSMISSION);
+    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_TRANSMISSION | BSDF_SPECULAR);
     if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
         // move the ray origin forward by a small amount in its direction
         // to avoid intersection with the surface we just came from
         let ray = Ray::new_with_depth(isect.point + wi * 0.000000000001, wi, ray.depth + 1);
         let li = renderer.render(&ray, scene);
-        let L = f * li * (na::dot(&wi, n).abs() / pdf);
-        L
+        let l = f * li * (na::dot(&wi, n).abs() / pdf);
+        l
     } else {
         na::zero()
     }
@@ -92,13 +91,13 @@ impl Renderer for StandardRenderer {
         match isect_opt {
             Some(isect) => {
                 let wo = -(*ray.dir());
-                let mut L = sample_lights(&wo, &isect, scene);
+                let mut l = sample_lights(&wo, &isect, scene);
 
                 if ray.depth < self.depth {
-                    L = L + specular_reflect(ray, &isect, scene, self);
-                    L = L + specular_transmission(ray, &isect, scene, self);
+                    l = l + specular_reflect(ray, &isect, scene, self);
+                    l = l + specular_transmission(ray, &isect, scene, self);
                 }
-                L
+                l
             },
             None => na::zero()
         }

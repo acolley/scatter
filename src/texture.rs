@@ -1,9 +1,7 @@
 
 use std::sync::Arc;
 
-use na;
-
-use image::{GenericImage, ImageBuffer, Rgb, RgbImage};
+use image::{GenericImage, RgbImage};
 use na::{Vec3};
 use spectrum::{Spectrum};
 
