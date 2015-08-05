@@ -9,12 +9,14 @@ extern crate uuid;
 extern crate nalgebra as na;
 extern crate ncollide;
 
+use std::collections::HashMap;
 use std::f64::consts;
 use std::fs::{File};
 use std::path::{Path};
 use std::sync::Arc;
-use std::sync::mpsc::channel;
+use std::sync::mpsc;
 use std::thread;
+use std::u32;
 
 use self::na::{Iso3, Pnt3, Vec3, Translate};
 use ncollide::ray::{Ray3};
@@ -39,6 +41,7 @@ use light::{DirectionalLight, PointLight};
 use material::{DiffuseMaterial, GlassMaterial, MirrorMaterial};
 use renderer::{Renderer, StandardRenderer};
 use scene::{Scene, SceneNode};
+use spectrum::Spectrum;
 use texture::{ConstantTexture, ImageTexture};
 
 fn render(width: u32, 
@@ -48,73 +51,71 @@ fn render(width: u32,
           camera: &Arc<PerspectiveCamera>,
           scene: &Arc<Scene>,
           renderer: &Arc<StandardRenderer>) -> Vec<u8> {
-    let (tx, rx) = channel();
+    let (tx, rx) = mpsc::channel();
     let xchunk_size = width / nthreads;
     let ychunk_size = height / nthreads;
     for i in 0..nthreads {
-          let xstart = i * xchunk_size;
-          let xend = u32::min(width - 1, xstart + xchunk_size);
-          let ystart = i * ychunk_size;
-          let yend = u32::min(height - 1, ystart + ychunk_size);
+        let xstart = i * xchunk_size;
+        let xend = f32::min(width as f32, (xstart + xchunk_size) as f32) as u32;
+        let ystart = i * ychunk_size;
+        let yend = f32::min(height as f32, (ystart + ychunk_size) as f32) as u32;
 
-          let tx = tx.clone();
-          let camera = camera.clone();
-          let scene = scene.clone();
-          let renderer = renderer.clone();
-          thread::spawn(move || {
-              for x in xstart..xend {
-                  for y in ystart..yend {
-                      let mut c: Vec3<f64> = na::zero();
-                      if samples_per_pixel == 1 {
-                      let ray = camera.ray_from(x as f64, y as f64);
-                          c = renderer.render(&ray, &scene);
-                      } else {
-                          for _ in 0..samples_per_pixel {
-                              // TODO: make the sampling methods into their
-                              // own trait/struct implementations for different
-                              // types of samplers to be used interchangeably
-                              let dx = rand::random::<f64>() - 0.5;
-                              let dy = rand::random::<f64>() - 0.5;
-                              let ray = camera.ray_from((x as f64) + dx, (y as f64) + dy);
-                              c = c + renderer.render(&ray, &scene);
-                          }
-                      }
-                  }
-              }
-          });
+        println!("xstart: {}, xend: {}, ystart: {}, yend: {}", xstart, xend, ystart, yend);
+
+        let tx = tx.clone();
+        let camera = camera.clone();
+        let scene = scene.clone();
+        let renderer = renderer.clone();
+        thread::spawn(move || {
+            for x in xstart..xend {
+                for y in ystart..yend {
+                    let mut c: Vec3<f64> = na::zero();
+                    if samples_per_pixel == 1 {
+                    let ray = camera.ray_from(x as f64, y as f64);
+                        c = renderer.render(&ray, &scene);
+                    } else {
+                        for _ in 0..samples_per_pixel {
+                            // TODO: make the sampling methods into their
+                            // own trait/struct implementations for different
+                            // types of samplers to be used interchangeably
+                            let dx = rand::random::<f64>() - 0.5;
+                            let dy = rand::random::<f64>() - 0.5;
+                            let ray = camera.ray_from((x as f64) + dx, (y as f64) + dy);
+                            c = c + renderer.render(&ray, &scene);
+                        }
+                    }
+                    c = c / (samples_per_pixel as f64);
+                    tx.send((x, y, c)).ok().expect(&format!("Could not send Spectrum value for ({}, {})", x, y));
+                }
+            }
+        });
+    }
+    let mut pixel_map: HashMap<(u32, u32), Spectrum> = HashMap::with_capacity((width * height) as usize);
+
+    // explicitly drop the the transmission end
+    // otherwise the receiver will block indefinitely
+    drop(tx);
+
+    for (x, y, c) in rx {
+        pixel_map.insert((x, y), c);
     }
 
-    let mut colours = Vec::new();
-    // for y in 0..height {
-    //     for x in 0..width {
-    //         let mut c: Vec3<f64> = na::zero();
-    //         if samples_per_pixel == 1 {
-    //             c = sample(x as f64, y as f64, camera, scene, renderer);
-    //         } else {
-    //             for _ in 0..samples_per_pixel {
-    //                 // TODO: make the sampling methods into their
-    //                 // own trait/struct implementations for different
-    //                 // types of samplers to be used interchangeably
-    //                 let dx = rand::random::<f64>() - 0.5;
-    //                 let dy = rand::random::<f64>() - 0.5;
+    // reconstruct final image
+    let mut colours = Vec::with_capacity((width * height * 3) as usize);
+    for y in 0..height {
+        for x in 0..width {
+            let c = pixel_map.get(&(x, y)).expect(&format!("No pixel at ({}, {})", x, y));
+            // constrain rgb components to range [0, 255]
+            colours.push(na::clamp(c.x * 255.0, 0.0, 255.0) as u8);
+            colours.push(na::clamp(c.y * 255.0, 0.0, 255.0) as u8);
+            colours.push(na::clamp(c.z * 255.0, 0.0, 255.0) as u8);
+        }
+    }
 
-    //                 let ray = camera.ray_from(x, y);
-
-    //                 c = c + sample((x as f64) + dx, (y as f64) + dy, camera, scene, renderer);
-    //             }
-    //         }
-    //         c = c / (samples_per_pixel as f64);
-    //         // constrain rgb components to range [0, 255]
-    //         colours.push(na::clamp(c.x * 255.0, 0.0, 255.0) as u8);
-    //         colours.push(na::clamp(c.y * 255.0, 0.0, 255.0) as u8);
-    //         colours.push(na::clamp(c.z * 255.0, 0.0, 255.0) as u8);
-    //     }
-    // }
     colours
 }
 
 fn setup_scene() -> Scene {
-    let mut scene = Scene::new();
     let teximg = Arc::new(image::open(&Path::new("resources/checker_huge.gif")).unwrap().to_rgb());
 
     let white = Vec3::new(1.0, 1.0, 1.0);
@@ -129,56 +130,59 @@ fn setup_scene() -> Scene {
     let material_blue = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(blue))));
     let material_checker = Arc::new(DiffuseMaterial::new(Box::new(ImageTexture::new(teximg.clone()))));
 
+    let mut nodes = Vec::new();
+
     let transform = Iso3::new(Vec3::new(1.0, -1.5, 0.8), na::zero());
-    scene.add_node(Arc::new(SceneNode::new(transform, 
+    nodes.push(Arc::new(SceneNode::new(transform, 
                                            material_reflect.clone(),
                                            Box::new(Ball::new(0.6)))));
 
     let transform = Iso3::new(Vec3::new(-1.0, -1.5, 0.2), na::zero());
-    scene.add_node(Arc::new(SceneNode::new(transform, 
+    nodes.push(Arc::new(SceneNode::new(transform, 
                                            material_glass.clone(),
                                            Box::new(Ball::new(0.6)))));
 
     // let transform = Iso3::new(Vec3::new(-0.5, -1.0, 7.0), Vec3::new(0.0, 0.0, consts::PI / 4.0));
-    // scene.add_node(Arc::new(SceneNode::new(transform,
+    // nodes.push(Arc::new(SceneNode::new(transform,
     //                                        material_reflect.clone(),
     //                                        Box::new(Cuboid::new(Vec3::new(0.5, 0.5, 0.5))))));
 
     // let transform = Iso3::new(Vec3::new(-1.0, -2.0, 5.0), na::zero());
-    // scene.add_node(Arc::new(SceneNode::new(transform, 
+    // nodes.push(Arc::new(SceneNode::new(transform, 
     //                                        material_checker.clone(),
     //                                        Box::new(Ball::new(1.0)))));
 
     // floor
     let transform = Iso3::new(Vec3::new(0.0, -3.0, 0.0), na::zero());
-    scene.add_node(Arc::new(SceneNode::new(transform,
+    nodes.push(Arc::new(SceneNode::new(transform,
                                            material_white.clone(),
                                            Box::new(Cuboid::new(Vec3::new(3.0, 0.01, 3.0))))));
     // ceiling
     let transform = Iso3::new(Vec3::new(0.0, 2.9, 0.0), na::zero());
-    scene.add_node(Arc::new(SceneNode::new(transform,
+    nodes.push(Arc::new(SceneNode::new(transform,
                                            material_white.clone(),
                                            Box::new(Cuboid::new(Vec3::new(3.0, 0.01, 3.0))))));
     // front
     let transform = Iso3::new(Vec3::new(0.0, 0.0, 3.0), na::zero());
-    scene.add_node(Arc::new(SceneNode::new(transform,
+    nodes.push(Arc::new(SceneNode::new(transform,
                                            material_white.clone(),
                                            Box::new(Cuboid::new(Vec3::new(3.0, 3.0, 0.01))))));
     // back
     let transform = Iso3::new(Vec3::new(0.0, 0.0, -3.0), na::zero());
-    scene.add_node(Arc::new(SceneNode::new(transform,
+    nodes.push(Arc::new(SceneNode::new(transform,
                                            material_white.clone(),
                                            Box::new(Cuboid::new(Vec3::new(3.0, 3.0, 0.01))))));
     // left
     let transform = Iso3::new(Vec3::new(3.0, 0.0, 0.0), na::zero());
-    scene.add_node(Arc::new(SceneNode::new(transform,
+    nodes.push(Arc::new(SceneNode::new(transform,
                                            material_red.clone(),
                                            Box::new(Cuboid::new(Vec3::new(0.01, 3.0, 3.0))))));
     // right
     let transform = Iso3::new(Vec3::new(-3.0, 0.0, 0.0), na::zero());
-    scene.add_node(Arc::new(SceneNode::new(transform,
+    nodes.push(Arc::new(SceneNode::new(transform,
                                            material_blue.clone(),
                                            Box::new(Cuboid::new(Vec3::new(0.01, 3.0, 3.0))))));
+    let mut scene = Scene::new(nodes);
 
 
     // let dir_light = Box::new(DirectionalLight::new(1.0, na::one(), -Vec3::y()));
@@ -220,6 +224,10 @@ fn main() {
                             .short("d")
                             .long("depth")
                             .takes_value(true))
+                       .arg(Arg::with_name("THREADS")
+                            .short("t")
+                            .long("threads")
+                            .takes_value(true))
                        .get_matches();
 
     let width = matches.value_of("WIDTH").unwrap_or("100").parse::<u32>().ok().expect("Value for width is not a valid unsigned integer");
@@ -227,6 +235,8 @@ fn main() {
     let samples = matches.value_of("SAMPLES").unwrap_or("3").parse::<u32>().ok().expect("Value for samples is not a valid unsigned integer");
     assert!(samples > 0);
     let depth = matches.value_of("DEPTH").unwrap_or("6").parse::<i32>().ok().expect("Value for depth is not a valid unsigned integer");
+    let nthreads = matches.value_of("THREADS").unwrap_or("1").parse::<u32>().ok().expect("Value for depth is not a valid unsigned integer");
+    assert!(nthreads > 0);
 
     let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, -2.0), na::zero()), width, height, consts::PI / 2.0, 0.01, 1000.0);
     camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
@@ -235,7 +245,7 @@ fn main() {
     let scene = Arc::new(setup_scene());
     let renderer = Arc::new(StandardRenderer::new(depth));
 
-    let colours = render(width, height, 4, samples, &camera, &scene, &renderer);
+    let colours = render(width, height, nthreads, samples, &camera, &scene, &renderer);
 
     let filename = matches.value_of("OUTPUT").unwrap_or("scatter.png");
     let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");

@@ -43,6 +43,7 @@ impl Camera for PerspectiveCamera {
         Ray::new(self.transform.translation().to_pnt(), na::normalize(&(eye - self.transform.translation().to_pnt())))
     }
 
+    #[inline]
     fn look_at_z(&mut self, at: &Pnt3<f64>, up: &Vec3<f64>) {
         let mut transform = self.transform;
         transform.look_at_z(&self.transform.translation().to_pnt(), at, up);

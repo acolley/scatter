@@ -24,6 +24,7 @@ impl ConstantTexture {
 }
 
 impl Texture for ConstantTexture {
+    #[inline]
     fn sample(&self, _: f64, _: f64) -> Spectrum {
         self.colour
     }
