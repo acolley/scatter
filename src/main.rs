@@ -13,6 +13,8 @@ use std::f64::consts;
 use std::fs::{File};
 use std::path::{Path};
 use std::sync::Arc;
+use std::sync::mpsc::channel;
+use std::thread;
 
 use self::na::{Iso3, Pnt3, Vec3, Translate};
 use ncollide::ray::{Ray3};
@@ -39,49 +41,80 @@ use renderer::{Renderer, StandardRenderer};
 use scene::{Scene, SceneNode};
 use texture::{ConstantTexture, ImageTexture};
 
-fn sample(x: f64,
-          y: f64,
-          camera: &PerspectiveCamera,
-          scene: &mut Scene,
-          renderer: &Renderer) -> Vec3<f64> {
-    let ray = camera.ray_from(x, y);
-    renderer.render(&ray, scene)
-}
-
 fn render(width: u32, 
           height: u32, 
+          nthreads: u32,
           samples_per_pixel: u32,
-          camera: &PerspectiveCamera,
-          scene: &mut Scene,
-          renderer: &Renderer) -> Vec<u8> {
-    let mut colours = Vec::new();
-    for y in 0..height {
-        for x in 0..width {
-            let mut c: Vec3<f64> = na::zero();
-            if samples_per_pixel == 1 {
-                c = sample(x as f64, y as f64, camera, scene, renderer);
-            } else {
-                for _ in 0..samples_per_pixel {
-                    // TODO: make the sampling methods into their
-                    // own trait/struct implementations for different
-                    // types of samplers to be used interchangeably
-                    let dx = rand::random::<f64>() - 0.5;
-                    let dy = rand::random::<f64>() - 0.5;
+          camera: &Arc<PerspectiveCamera>,
+          scene: &Arc<Scene>,
+          renderer: &Arc<StandardRenderer>) -> Vec<u8> {
+    let (tx, rx) = channel();
+    let xchunk_size = width / nthreads;
+    let ychunk_size = height / nthreads;
+    for i in 0..nthreads {
+          let xstart = i * xchunk_size;
+          let xend = u32::min(width - 1, xstart + xchunk_size);
+          let ystart = i * ychunk_size;
+          let yend = u32::min(height - 1, ystart + ychunk_size);
 
-                    c = c + sample((x as f64) + dx, (y as f64) + dy, camera, scene, renderer);
-                }
-            }
-            c = c / (samples_per_pixel as f64);
-            // constrain rgb components to range [0, 255]
-            colours.push(na::clamp(c.x * 255.0, 0.0, 255.0) as u8);
-            colours.push(na::clamp(c.y * 255.0, 0.0, 255.0) as u8);
-            colours.push(na::clamp(c.z * 255.0, 0.0, 255.0) as u8);
-        }
+          let tx = tx.clone();
+          let camera = camera.clone();
+          let scene = scene.clone();
+          let renderer = renderer.clone();
+          thread::spawn(move || {
+              for x in xstart..xend {
+                  for y in ystart..yend {
+                      let mut c: Vec3<f64> = na::zero();
+                      if samples_per_pixel == 1 {
+                      let ray = camera.ray_from(x as f64, y as f64);
+                          c = renderer.render(&ray, &scene);
+                      } else {
+                          for _ in 0..samples_per_pixel {
+                              // TODO: make the sampling methods into their
+                              // own trait/struct implementations for different
+                              // types of samplers to be used interchangeably
+                              let dx = rand::random::<f64>() - 0.5;
+                              let dy = rand::random::<f64>() - 0.5;
+                              let ray = camera.ray_from((x as f64) + dx, (y as f64) + dy);
+                              c = c + renderer.render(&ray, &scene);
+                          }
+                      }
+                  }
+              }
+          });
     }
+
+    let mut colours = Vec::new();
+    // for y in 0..height {
+    //     for x in 0..width {
+    //         let mut c: Vec3<f64> = na::zero();
+    //         if samples_per_pixel == 1 {
+    //             c = sample(x as f64, y as f64, camera, scene, renderer);
+    //         } else {
+    //             for _ in 0..samples_per_pixel {
+    //                 // TODO: make the sampling methods into their
+    //                 // own trait/struct implementations for different
+    //                 // types of samplers to be used interchangeably
+    //                 let dx = rand::random::<f64>() - 0.5;
+    //                 let dy = rand::random::<f64>() - 0.5;
+
+    //                 let ray = camera.ray_from(x, y);
+
+    //                 c = c + sample((x as f64) + dx, (y as f64) + dy, camera, scene, renderer);
+    //             }
+    //         }
+    //         c = c / (samples_per_pixel as f64);
+    //         // constrain rgb components to range [0, 255]
+    //         colours.push(na::clamp(c.x * 255.0, 0.0, 255.0) as u8);
+    //         colours.push(na::clamp(c.y * 255.0, 0.0, 255.0) as u8);
+    //         colours.push(na::clamp(c.z * 255.0, 0.0, 255.0) as u8);
+    //     }
+    // }
     colours
 }
 
-fn setup(scene: &mut Scene) {
+fn setup_scene() -> Scene {
+    let mut scene = Scene::new();
     let teximg = Arc::new(image::open(&Path::new("resources/checker_huge.gif")).unwrap().to_rgb());
 
     let white = Vec3::new(1.0, 1.0, 1.0);
@@ -160,6 +193,8 @@ fn setup(scene: &mut Scene) {
     scene.add_light(pnt_light_white);
     // let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(10.0, 25.0, 10.0), 500.0));
     // scene.add_light(pnt_light_white);
+
+    scene
 }
 
 fn main() {
@@ -195,12 +230,12 @@ fn main() {
 
     let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, -2.0), na::zero()), width, height, consts::PI / 2.0, 0.01, 1000.0);
     camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
+    let camera = Arc::new(camera);
 
-    let mut scene = Scene::new();
-    setup(&mut scene);
-    let renderer = StandardRenderer::new(depth);
+    let scene = Arc::new(setup_scene());
+    let renderer = Arc::new(StandardRenderer::new(depth));
 
-    let colours = render(width, height, samples, &camera, &mut scene, &renderer);
+    let colours = render(width, height, 4, samples, &camera, &scene, &renderer);
 
     let filename = matches.value_of("OUTPUT").unwrap_or("scatter.png");
     let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");
