@@ -133,7 +133,7 @@ impl Scene {
             self.world.visit(&mut visitor);
         }
         intersections.iter()
-                     .map(|n| n.geom.toi_with_transform_and_ray(&n.transform, &ray.ray, false))
+                     .map(|n| n.geom.toi_with_transform_and_ray(&n.transform, &ray.ray, true))
                      .filter(|x| x.is_some())
                      .map(|x| x.unwrap())
                      .filter(|&x| x > 0.0)

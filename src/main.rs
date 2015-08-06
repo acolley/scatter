@@ -133,10 +133,10 @@ fn setup_scene() -> Scene {
 
     let mut nodes = Vec::new();
 
-    // let transform = Iso3::new(Vec3::new(1.0, -1.5, 0.8), na::zero());
-    // nodes.push(Arc::new(SceneNode::new(transform, 
-    //                                    material_reflect.clone(),
-    //                                    Box::new(Ball::new(0.6)))));
+    let transform = Iso3::new(Vec3::new(1.0, -1.5, 0.8), na::zero());
+    nodes.push(Arc::new(SceneNode::new(transform, 
+                                       material_reflect.clone(),
+                                       Box::new(Ball::new(0.6)))));
 
     let transform = Iso3::new(Vec3::new(-1.0, -1.5, 0.2), na::zero());
     nodes.push(Arc::new(SceneNode::new(transform, 

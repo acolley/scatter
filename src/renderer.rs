@@ -34,7 +34,7 @@ pub fn specular_reflect(ray: &Ray,
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_REFLECTION | BSDF_SPECULAR);
+    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_REFLECTION);
     if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
         // move the ray origin forward by a small amount in its direction
         // to avoid intersection with the surface we just came from
@@ -55,7 +55,7 @@ pub fn specular_transmit(ray: &Ray,
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_TRANSMISSION | BSDF_SPECULAR);
+    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_TRANSMISSION);
     if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
         // move the ray origin forward by a small amount in its direction
         // to avoid intersection with the surface we just came from
