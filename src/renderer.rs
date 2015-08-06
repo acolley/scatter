@@ -48,10 +48,10 @@ pub fn specular_reflect(ray: &Ray,
 }
 
 /// Find the specular transmission component at a surface point.
-pub fn specular_transmission(ray: &Ray,
-                             isect: &Intersection, 
-                             scene: &Scene,
-                             renderer: &Renderer) -> Spectrum {
+pub fn specular_transmit(ray: &Ray,
+                         isect: &Intersection, 
+                         scene: &Scene,
+                         renderer: &Renderer) -> Spectrum {
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
@@ -95,7 +95,7 @@ impl Renderer for StandardRenderer {
 
                 if ray.depth < self.depth {
                     l = l + specular_reflect(ray, &isect, scene, self);
-                    l = l + specular_transmission(ray, &isect, scene, self);
+                    l = l + specular_transmit(ray, &isect, scene, self);
                 }
                 l
             },

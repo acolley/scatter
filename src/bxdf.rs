@@ -7,6 +7,8 @@ use na::{Mat3, Rot3, Transform, Vec3};
 
 use math::{Clamp};
 
+pub type Pdf = f64;
+
 bitflags! {
     flags BxDFType: u32 {
         const BSDF_REFLECTION       = 0b00000001,
@@ -28,22 +30,25 @@ bitflags! {
 
 /// Return Cos Theta for a normalized vector
 /// in normal space.
+#[inline]
 fn cos_theta(v: &Vec3<f64>) -> f64 {
     v.z
 }
 
+#[inline]
 fn sin_theta2(v: &Vec3<f64>) -> f64 {
     f64::max(0.0, 1.0 - cos_theta(v)*cos_theta(v))
 }
 
+#[inline]
 fn sin_theta(v: &Vec3<f64>) -> f64 {
     sin_theta2(v).sqrt()
 }
 
 pub trait BxDF {
-    fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> f64;
+    fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> Pdf;
     /// Returns wi and the pdf
-    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, f64);
+    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf);
     fn f(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> Spectrum;
     fn bxdf_type(&self) -> BxDFType;
 
@@ -65,13 +70,16 @@ impl Lambertian {
 }
 
 impl BxDF for Lambertian {
-    fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> f64 { 0.0 }
+    #[inline]
+    fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Pdf { 0.0 }
 
-    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, f64) {
+    #[inline]
+    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf) {
         (na::zero(), na::zero(), self.pdf(wo, &na::zero()))
     }
 
     /// diffuse surfaces emit the same amount of light in all directions
+    #[inline]
     fn f(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Spectrum {
         self.colour
     }
@@ -106,9 +114,10 @@ impl SpecularReflection {
 impl BxDF for SpecularReflection {
     /// The Probability Distribution Function for use in
     /// Monte Carlo sampling.
-    fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> f64 { 0.0 }
+    #[inline]
+    fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Pdf { 0.0 }
 
-    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, f64) {
+    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf) {
         let wi = Vec3::new(-wo.x, -wo.y, wo.z);
         let l = self.fresnel.evaluate(cos_theta(wo)) * self.r / cos_theta(&wi).abs();
         (l, wi, 1.0)
@@ -116,6 +125,7 @@ impl BxDF for SpecularReflection {
 
     /// Specular reflection only produces light in a single direction
     /// given by the sample_f method
+    #[inline]
     fn f(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Spectrum { na::zero() }
 
     #[inline]
@@ -147,9 +157,10 @@ impl SpecularTransmission {
 }
 
 impl BxDF for SpecularTransmission {
-    fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> f64 { 0.0 }
+    #[inline]
+    fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Pdf { 0.0 }
 
-    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, f64) {
+    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf) {
         let entering = cos_theta(wo) > 0.0;
         let (etai, etat) = if entering {
             (self.etai, self.etat)
@@ -182,6 +193,7 @@ impl BxDF for SpecularTransmission {
 
     /// Specular transmission only produces light in a single direction
     /// given by the sample_f method.
+    #[inline]
     fn f(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Spectrum { na::zero() }
 
     #[inline]
@@ -235,7 +247,7 @@ impl BSDF {
         self.world_to_local.inv_transform(v)
     }
 
-    pub fn sample_f(&self, wo_world: &Vec3<f64>, flags: BxDFType) -> (Spectrum, Vec3<f64>, f64) {
+    pub fn sample_f(&self, wo_world: &Vec3<f64>, flags: BxDFType) -> (Spectrum, Vec3<f64>, Pdf) {
         let wo = self.world_to_local(wo_world);
 
         let mut bxdfs = self.bxdfs.iter().filter(|x| x.matches_flags(flags));
@@ -316,6 +328,7 @@ impl FresnelConductor {
 }
 
 impl Fresnel for FresnelConductor {
+    #[inline]
     fn evaluate(&self, cosi: f64) -> Spectrum {
         fr_cond(cosi.abs(), &self.eta, &self.k)
     }

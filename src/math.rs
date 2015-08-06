@@ -2,6 +2,8 @@
 use na;
 use na::{Norm, Vec3};
 
+pub type Normal = Vec3<f64>;
+
 pub fn coordinate_system(v1: &Vec3<f64>) -> (Vec3<f64>, Vec3<f64>) {
     let v2 = {
         if v1.x.abs() > v1.y.abs() {
@@ -18,7 +20,7 @@ pub fn coordinate_system(v1: &Vec3<f64>) -> (Vec3<f64>, Vec3<f64>) {
 
 /// Reflect a vector `v` around an arbitrary normal vector
 /// `n`. The normal is assumed to be normalized.
-pub fn reflect(v: &Vec3<f64>, n: &Vec3<f64>) -> Vec3<f64> {
+pub fn reflect(v: &Vec3<f64>, n: &Normal) -> Vec3<f64> {
     let mut reflected = *v - *n * 2.0 * (na::dot(v, n));
     reflected.normalize_mut();
     reflected

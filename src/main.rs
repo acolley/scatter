@@ -52,15 +52,16 @@ fn render(width: u32,
           scene: &Arc<Scene>,
           renderer: &Arc<StandardRenderer>) -> Vec<u8> {
     let (tx, rx) = mpsc::channel();
+    // partition along the x dimension
     let xchunk_size = width / nthreads;
-    let ychunk_size = height / nthreads;
+    // let ychunk_size = height;
     for i in 0..nthreads {
         let xstart = i * xchunk_size;
         let xend = f32::min(width as f32, (xstart + xchunk_size) as f32) as u32;
-        let ystart = i * ychunk_size;
-        let yend = f32::min(height as f32, (ystart + ychunk_size) as f32) as u32;
+        // let ystart = i * ychunk_size;
+        // let yend = f32::min(height as f32, (ystart + ychunk_size) as f32) as u32;
 
-        println!("xstart: {}, xend: {}, ystart: {}, yend: {}", xstart, xend, ystart, yend);
+        // println!("xstart: {}, xend: {}, ystart: {}, yend: {}", xstart, xend, ystart, yend);
 
         let tx = tx.clone();
         let camera = camera.clone();
@@ -68,7 +69,7 @@ fn render(width: u32,
         let renderer = renderer.clone();
         thread::spawn(move || {
             for x in xstart..xend {
-                for y in ystart..yend {
+                for y in 0..height {
                     let mut c: Vec3<f64> = na::zero();
                     if samples_per_pixel == 1 {
                     let ray = camera.ray_from(x as f64, y as f64);
@@ -132,15 +133,15 @@ fn setup_scene() -> Scene {
 
     let mut nodes = Vec::new();
 
-    let transform = Iso3::new(Vec3::new(1.0, -1.5, 0.8), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform, 
-                                           material_reflect.clone(),
-                                           Box::new(Ball::new(0.6)))));
+    // let transform = Iso3::new(Vec3::new(1.0, -1.5, 0.8), na::zero());
+    // nodes.push(Arc::new(SceneNode::new(transform, 
+    //                                    material_reflect.clone(),
+    //                                    Box::new(Ball::new(0.6)))));
 
     let transform = Iso3::new(Vec3::new(-1.0, -1.5, 0.2), na::zero());
     nodes.push(Arc::new(SceneNode::new(transform, 
-                                           material_glass.clone(),
-                                           Box::new(Ball::new(0.6)))));
+                                       material_glass.clone(),
+                                       Box::new(Ball::new(0.6)))));
 
     // let transform = Iso3::new(Vec3::new(-0.5, -1.0, 7.0), Vec3::new(0.0, 0.0, consts::PI / 4.0));
     // nodes.push(Arc::new(SceneNode::new(transform,
@@ -155,33 +156,33 @@ fn setup_scene() -> Scene {
     // floor
     let transform = Iso3::new(Vec3::new(0.0, -3.0, 0.0), na::zero());
     nodes.push(Arc::new(SceneNode::new(transform,
-                                           material_white.clone(),
-                                           Box::new(Cuboid::new(Vec3::new(3.0, 0.01, 3.0))))));
+                                       material_white.clone(),
+                                       Box::new(Cuboid::new(Vec3::new(3.0, 0.01, 3.0))))));
     // ceiling
     let transform = Iso3::new(Vec3::new(0.0, 2.9, 0.0), na::zero());
     nodes.push(Arc::new(SceneNode::new(transform,
-                                           material_white.clone(),
-                                           Box::new(Cuboid::new(Vec3::new(3.0, 0.01, 3.0))))));
+                                       material_white.clone(),
+                                       Box::new(Cuboid::new(Vec3::new(3.0, 0.01, 3.0))))));
     // front
     let transform = Iso3::new(Vec3::new(0.0, 0.0, 3.0), na::zero());
     nodes.push(Arc::new(SceneNode::new(transform,
-                                           material_white.clone(),
-                                           Box::new(Cuboid::new(Vec3::new(3.0, 3.0, 0.01))))));
+                                       material_white.clone(),
+                                       Box::new(Cuboid::new(Vec3::new(3.0, 3.0, 0.01))))));
     // back
     let transform = Iso3::new(Vec3::new(0.0, 0.0, -3.0), na::zero());
     nodes.push(Arc::new(SceneNode::new(transform,
-                                           material_white.clone(),
-                                           Box::new(Cuboid::new(Vec3::new(3.0, 3.0, 0.01))))));
+                                       material_white.clone(),
+                                       Box::new(Cuboid::new(Vec3::new(3.0, 3.0, 0.01))))));
     // left
     let transform = Iso3::new(Vec3::new(3.0, 0.0, 0.0), na::zero());
     nodes.push(Arc::new(SceneNode::new(transform,
-                                           material_red.clone(),
-                                           Box::new(Cuboid::new(Vec3::new(0.01, 3.0, 3.0))))));
+                                       material_red.clone(),
+                                       Box::new(Cuboid::new(Vec3::new(0.01, 3.0, 3.0))))));
     // right
     let transform = Iso3::new(Vec3::new(-3.0, 0.0, 0.0), na::zero());
     nodes.push(Arc::new(SceneNode::new(transform,
-                                           material_blue.clone(),
-                                           Box::new(Cuboid::new(Vec3::new(0.01, 3.0, 3.0))))));
+                                       material_blue.clone(),
+                                       Box::new(Cuboid::new(Vec3::new(0.01, 3.0, 3.0))))));
     let mut scene = Scene::new(nodes);
 
 
@@ -234,8 +235,8 @@ fn main() {
     let height = matches.value_of("HEIGHT").unwrap_or("100").parse::<u32>().ok().expect("Value for height is not a valid unsigned integer");
     let samples = matches.value_of("SAMPLES").unwrap_or("3").parse::<u32>().ok().expect("Value for samples is not a valid unsigned integer");
     assert!(samples > 0);
-    let depth = matches.value_of("DEPTH").unwrap_or("6").parse::<i32>().ok().expect("Value for depth is not a valid unsigned integer");
-    let nthreads = matches.value_of("THREADS").unwrap_or("1").parse::<u32>().ok().expect("Value for depth is not a valid unsigned integer");
+    let depth = matches.value_of("DEPTH").unwrap_or("6").parse::<i32>().ok().expect("Value for depth is not a valid signed integer");
+    let nthreads = matches.value_of("THREADS").unwrap_or("1").parse::<u32>().ok().expect("Value for threads is not a valid unsigned integer");
     assert!(nthreads > 0);
 
     let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, -2.0), na::zero()), width, height, consts::PI / 2.0, 0.01, 1000.0);
