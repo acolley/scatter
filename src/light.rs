@@ -82,12 +82,15 @@ impl DirectionalLight {
 }
 
 impl Light for DirectionalLight {
+    #[inline]
     fn colour(&self) -> &Spectrum { &self.colour }
 
+    #[inline]
     fn sample(&self, _: &Pnt3<f64>) -> (Spectrum, Vec3<f64>) {
         (self.colour * self.intensity, -self.direction)
     }
 
+    #[inline]
     fn shadow(&self, _: &Pnt3<f64>, _: &Scene) -> bool {
         // No point can be in shadow from a global directional light
         false

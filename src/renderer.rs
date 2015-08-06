@@ -34,7 +34,7 @@ pub fn specular_reflect(ray: &Ray,
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_REFLECTION | BSDF_SPECULAR);
+    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_REFLECTION);
     if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
         // move the ray origin forward by a small amount in its direction
         // to avoid intersection with the surface we just came from
@@ -48,14 +48,14 @@ pub fn specular_reflect(ray: &Ray,
 }
 
 /// Find the specular transmission component at a surface point.
-pub fn specular_transmission(ray: &Ray,
-                             isect: &Intersection, 
-                             scene: &Scene,
-                             renderer: &Renderer) -> Spectrum {
+pub fn specular_transmit(ray: &Ray,
+                         isect: &Intersection, 
+                         scene: &Scene,
+                         renderer: &Renderer) -> Spectrum {
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_TRANSMISSION | BSDF_SPECULAR);
+    let (f, wi, pdf) = bsdf.sample_f(&wo, BSDF_TRANSMISSION);
     if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
         // move the ray origin forward by a small amount in its direction
         // to avoid intersection with the surface we just came from
@@ -95,7 +95,7 @@ impl Renderer for StandardRenderer {
 
                 if ray.depth < self.depth {
                     l = l + specular_reflect(ray, &isect, scene, self);
-                    l = l + specular_transmission(ray, &isect, scene, self);
+                    l = l + specular_transmit(ray, &isect, scene, self);
                 }
                 l
             },

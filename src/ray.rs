@@ -19,10 +19,12 @@ impl Ray {
         }
     }
 
+    #[inline]
     pub fn orig<'a>(&'a self) -> &'a Pnt3<f64> {
         &self.ray.orig
     }
 
+    #[inline]
     pub fn dir<'a>(&'a self) -> &'a Vec3<f64> {
         &self.ray.dir
     }
