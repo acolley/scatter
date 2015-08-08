@@ -71,7 +71,7 @@ fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneN
     let mut nearest_normal = na::zero();
     let mut nearest_uvs = Pnt2::new(0.0, 0.0);
     for node in nodes {
-        match node.geom.toi_and_normal_and_uv_with_transform_and_ray(&node.transform, &ray.ray, false) {
+        match node.geom.toi_and_normal_and_uv_with_ray(&node.transform, &ray.ray, false) {
             Some(isect) => {
                 // check toi is greater than zero to rule out intersection
                 // with the node whose surface we're casting a ray from
@@ -120,7 +120,7 @@ impl Scene {
             let mut visitor = RayInterferencesCollector::new(&ray.ray, &mut intersections);
             self.world.visit(&mut visitor);
         }
-        intersections.iter().any(|n| n.geom.intersects_with_transform_and_ray(&n.transform, &ray.ray))
+        intersections.iter().any(|n| n.geom.intersects_ray(&n.transform, &ray.ray))
     }
 
     pub fn intersections(&self, ray: &Ray) -> Vec<f64> {
@@ -133,7 +133,7 @@ impl Scene {
             self.world.visit(&mut visitor);
         }
         intersections.iter()
-                     .map(|n| n.geom.toi_with_transform_and_ray(&n.transform, &ray.ray, true))
+                     .map(|n| n.geom.toi_with_ray(&n.transform, &ray.ray, true))
                      .filter(|x| x.is_some())
                      .map(|x| x.unwrap())
                      .filter(|&x| x > 0.0)

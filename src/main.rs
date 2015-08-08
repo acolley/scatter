@@ -54,14 +54,9 @@ fn render(width: u32,
     let (tx, rx) = mpsc::channel();
     // partition along the x dimension
     let xchunk_size = width / nthreads;
-    // let ychunk_size = height;
     for i in 0..nthreads {
         let xstart = i * xchunk_size;
         let xend = f32::min(width as f32, (xstart + xchunk_size) as f32) as u32;
-        // let ystart = i * ychunk_size;
-        // let yend = f32::min(height as f32, (ystart + ychunk_size) as f32) as u32;
-
-        // println!("xstart: {}, xend: {}, ystart: {}, yend: {}", xstart, xend, ystart, yend);
 
         let tx = tx.clone();
         let camera = camera.clone();
@@ -93,7 +88,7 @@ fn render(width: u32,
     }
     let mut pixel_map: HashMap<(u32, u32), Spectrum> = HashMap::with_capacity((width * height) as usize);
 
-    // explicitly drop the the transmission end
+    // explicitly drop the transmission end
     // otherwise the receiver will block indefinitely
     drop(tx);
 

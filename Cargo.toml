@@ -7,8 +7,10 @@ authors = ["acolley <alnessy@hotmail.com>"]
 bitflags = "0.3.2"
 clap = "0.11.0"
 image = "0.3.11"
-nalgebra = "*"
-ncollide = "*"
+nalgebra = "0.2.20"
 rand = "0.3.8"
 rustc-serialize = "*"
 uuid = "0.1.17"
+
+[dependencies.ncollide]
+git = "https://github.com/sebcrozet/ncollide.git"
