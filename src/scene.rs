@@ -44,10 +44,12 @@ impl Intersection {
 }
 
 impl SceneNode {
-    pub fn new<M: 'static + Material + Sync + Send, N: 'static + RayCast<Pnt3<f64>, Iso3<f64>> + HasAABB<Pnt3<f64>, Iso3<f64>> + Sync + Send>(
+    pub fn new<M, N>(
         transform: Iso3<f64>,
         material: Arc<M>,
-        geom: Box<N>) -> SceneNode {
+        geom: Box<N>) -> SceneNode
+    where M: 'static + Sync + Send + Material,
+          N: 'static + Sync + Send + RayCast<Pnt3<f64>, Iso3<f64>> + HasAABB<Pnt3<f64>, Iso3<f64>> {
         SceneNode {
             uuid : Uuid::new_v4(),
             transform : transform,

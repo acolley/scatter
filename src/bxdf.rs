@@ -53,7 +53,7 @@ pub trait BxDF {
     fn bxdf_type(&self) -> BxDFType;
 
     fn matches_flags(&self, bxdf_type: BxDFType) -> bool {
-        !(self.bxdf_type() & bxdf_type).is_empty()
+        self.bxdf_type().intersects(bxdf_type)
     }
 }
 

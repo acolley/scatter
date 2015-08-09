@@ -26,6 +26,7 @@ use ncollide::bounding_volume::{BoundingSphere};
 
 mod bxdf;
 mod camera;
+mod integrator;
 mod light;
 mod material;
 mod math;
@@ -37,20 +38,23 @@ mod texture;
 
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
+use integrator::{Integrator, Whitted};
 use light::{DirectionalLight, PointLight};
 use material::{DiffuseMaterial, GlassMaterial, MirrorMaterial};
+use rand::{StdRng};
 use renderer::{Renderer, StandardRenderer};
 use scene::{Scene, SceneNode};
 use spectrum::Spectrum;
 use texture::{ConstantTexture, ImageTexture};
 
-fn render(width: u32, 
-          height: u32, 
-          nthreads: u32,
-          samples_per_pixel: u32,
-          camera: &Arc<PerspectiveCamera>,
-          scene: &Arc<Scene>,
-          renderer: &Arc<StandardRenderer>) -> Vec<u8> {
+fn render<I>(width: u32, 
+             height: u32, 
+             nthreads: u32,
+             samples_per_pixel: u32,
+             camera: &Arc<PerspectiveCamera>,
+             scene: &Arc<Scene>,
+             renderer: &Arc<StandardRenderer<I>>) -> Vec<u8>
+where I: 'static + Integrator + Sync + Send {
     let (tx, rx) = mpsc::channel();
     // partition along the x dimension
     let xchunk_size = width / nthreads;
@@ -63,6 +67,8 @@ fn render(width: u32,
         let scene = scene.clone();
         let renderer = renderer.clone();
         thread::spawn(move || {
+            let rng = StdRng::new().ok().expect("Could not create random number generator");
+            // let rng = StdRng.from_seed();
             for x in xstart..xend {
                 for y in 0..height {
                     let mut c: Vec3<f64> = na::zero();
@@ -128,7 +134,7 @@ fn setup_scene() -> Scene {
 
     let mut nodes = Vec::new();
 
-    let transform = Iso3::new(Vec3::new(1.0, -1.5, 0.8), na::zero());
+    let transform = Iso3::new(Vec3::new(1.0, -1.2, 0.8), na::zero());
     nodes.push(Arc::new(SceneNode::new(transform, 
                                        material_reflect.clone(),
                                        Box::new(Ball::new(0.6)))));
@@ -138,15 +144,10 @@ fn setup_scene() -> Scene {
                                        material_glass.clone(),
                                        Box::new(Ball::new(0.6)))));
 
-    // let transform = Iso3::new(Vec3::new(-0.5, -1.0, 7.0), Vec3::new(0.0, 0.0, consts::PI / 4.0));
-    // nodes.push(Arc::new(SceneNode::new(transform,
-    //                                        material_reflect.clone(),
-    //                                        Box::new(Cuboid::new(Vec3::new(0.5, 0.5, 0.5))))));
-
-    // let transform = Iso3::new(Vec3::new(-1.0, -2.0, 5.0), na::zero());
+    // let transform = Iso3::new(Vec3::new(-1.0, -1.25, 0.2), na::zero());
     // nodes.push(Arc::new(SceneNode::new(transform, 
-    //                                        material_checker.clone(),
-    //                                        Box::new(Ball::new(1.0)))));
+    //                                    material_glass.clone(),
+    //                                    Box::new(Cuboid::new(Vec3::new(0.5, 0.5, 0.5))))));
 
     // floor
     let transform = Iso3::new(Vec3::new(0.0, -3.0, 0.0), na::zero());
@@ -234,12 +235,13 @@ fn main() {
     let nthreads = matches.value_of("THREADS").unwrap_or("1").parse::<u32>().ok().expect("Value for threads is not a valid unsigned integer");
     assert!(nthreads > 0);
 
-    let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, -2.0), na::zero()), width, height, consts::PI / 2.0, 0.01, 1000.0);
+    let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, -2.5), na::zero()), width, height, consts::PI / 2.0, 0.01, 1000.0);
     camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
     let camera = Arc::new(camera);
 
     let scene = Arc::new(setup_scene());
-    let renderer = Arc::new(StandardRenderer::new(depth));
+    let integrator = Whitted::new(depth);
+    let renderer = Arc::new(StandardRenderer::new(integrator));
 
     let colours = render(width, height, nthreads, samples, &camera, &scene, &renderer);
 
