@@ -9,7 +9,8 @@ use scene::{Intersection, Scene};
 use spectrum::{Spectrum};
 
 pub trait Renderer {
-	fn render(&self, ray: &Ray, scene: &Scene) -> Spectrum;
+	fn render<R>(&self, ray: &Ray, scene: &Scene, rng: &mut R) -> Spectrum
+        where R: Rng;
 }
 
 pub struct StandardRenderer<I: Integrator + Sync + Send> {
@@ -25,12 +26,13 @@ impl<I: Integrator + Sync + Send> StandardRenderer<I> {
 }
 
 impl<I: Integrator + Sync + Send> Renderer for StandardRenderer<I> {
-    fn render(&self, ray: &Ray, scene: &Scene) -> Spectrum {
+    fn render<R>(&self, ray: &Ray, scene: &Scene, rng: &mut R) -> Spectrum
+    where R: Rng {
         let isect_opt = scene.trace(ray);
 
         match isect_opt {
             Some(isect) => {
-                self.integrator.integrate(ray, &isect, scene, self)
+                self.integrator.integrate(ray, &isect, scene, self, rng)
             },
             None => na::zero()
         }

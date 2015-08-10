@@ -67,14 +67,14 @@ where I: 'static + Integrator + Sync + Send {
         let scene = scene.clone();
         let renderer = renderer.clone();
         thread::spawn(move || {
-            let rng = StdRng::new().ok().expect("Could not create random number generator");
+            let mut rng = StdRng::new().ok().expect("Could not create random number generator");
             // let rng = StdRng.from_seed();
             for x in xstart..xend {
                 for y in 0..height {
                     let mut c: Vec3<f64> = na::zero();
                     if samples_per_pixel == 1 {
                     let ray = camera.ray_from(x as f64, y as f64);
-                        c = renderer.render(&ray, &scene);
+                        c = renderer.render(&ray, &scene, &mut rng);
                     } else {
                         for _ in 0..samples_per_pixel {
                             // TODO: make the sampling methods into their
@@ -83,7 +83,7 @@ where I: 'static + Integrator + Sync + Send {
                             let dx = rand::random::<f64>() - 0.5;
                             let dy = rand::random::<f64>() - 0.5;
                             let ray = camera.ray_from((x as f64) + dx, (y as f64) + dy);
-                            c = c + renderer.render(&ray, &scene);
+                            c = c + renderer.render(&ray, &scene, &mut rng);
                         }
                     }
                     c = c / (samples_per_pixel as f64);
@@ -134,7 +134,7 @@ fn setup_scene() -> Scene {
 
     let mut nodes = Vec::new();
 
-    let transform = Iso3::new(Vec3::new(1.0, -1.2, 0.8), na::zero());
+    let transform = Iso3::new(Vec3::new(1.0, -1.5, 0.8), na::zero());
     nodes.push(Arc::new(SceneNode::new(transform, 
                                        material_reflect.clone(),
                                        Box::new(Ball::new(0.6)))));

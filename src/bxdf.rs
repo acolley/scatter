@@ -6,6 +6,7 @@ use na;
 use na::{Mat3, Rot3, Transform, Vec3};
 
 use math::{Clamp};
+use rand::{Rng};
 
 pub type Pdf = f64;
 
@@ -75,6 +76,7 @@ impl BxDF for Lambertian {
 
     #[inline]
     fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf) {
+        // TODO: implement this for path tracing
         (na::zero(), na::zero(), self.pdf(wo, &na::zero()))
     }
 
@@ -247,12 +249,18 @@ impl BSDF {
         self.world_to_local.inv_transform(v)
     }
 
-    pub fn sample_f(&self, wo_world: &Vec3<f64>, flags: BxDFType) -> (Spectrum, Vec3<f64>, Pdf) {
+    pub fn sample_f<R>(&self, 
+                       wo_world: &Vec3<f64>, 
+                       rng: &mut R,
+                       flags: BxDFType) -> (Spectrum, Vec3<f64>, Pdf)
+    where R: Rng {
         let wo = self.world_to_local(wo_world);
 
-        let mut bxdfs = self.bxdfs.iter().filter(|x| x.matches_flags(flags));
-        // Choose the first BxDF that matches the flags given
-        let (colour, wi, pdf) = match bxdfs.next() {
+        let bxdfs: Vec<&Box<BxDF>> = self.bxdfs.iter().filter(|x| x.matches_flags(flags)).collect();
+        // choose a random bxdf from the matching ones
+        let bxdf = rng.choose(&bxdfs);
+
+        let (colour, wi, pdf) = match bxdf {
             Some(bxdf) => {
                 bxdf.sample_f(&wo)
             },
@@ -272,10 +280,10 @@ impl BSDF {
         let flags = {
             if na::dot(wo_world, &self.normal) * na::dot(wi_world, &self.normal) > 0.0 {
                 // ignore BTDFs as the incident ray is on the outside of the surface
-                flags & !BSDF_TRANSMISSION
+                flags - BSDF_TRANSMISSION
             } else {
                 // ignore BRDFs as the incident ray is on the inside of the surface
-                flags & !BSDF_REFLECTION
+                flags - BSDF_REFLECTION
             }
         };
 
