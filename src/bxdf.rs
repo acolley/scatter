@@ -1,4 +1,5 @@
 
+use std::f64::consts;
 use math;
 use spectrum::{Spectrum};
 
@@ -6,6 +7,7 @@ use na;
 use na::{Mat3, Rot3, Transform, Vec3};
 
 use math::{Clamp};
+use montecarlo::{cosine_sample_hemisphere};
 use rand::{Rng};
 
 pub type Pdf = f64;
@@ -46,15 +48,40 @@ fn sin_theta(v: &Vec3<f64>) -> f64 {
     sin_theta2(v).sqrt()
 }
 
+#[inline]
+fn same_hemisphere(w: &Vec3<f64>, wp: &Vec3<f64>) -> bool {
+    w.z * wp.z > 0.0
+}
+
 pub trait BxDF {
-    fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> Pdf;
+    fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> Pdf {
+        if same_hemisphere(wo, wi) {
+            cos_theta(wi).abs() * consts::FRAC_1_PI
+        } else {
+            0.0
+        }
+    }
+
     /// Returns wi and the pdf
-    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf);
+    /// Default implementation returns a hemisphere
+    /// sampled direction and Pdf
+    fn sample_f(&self, wo: &Vec3<f64>, u1: f64, u2: f64) -> (Spectrum, Vec3<f64>, Pdf) {
+        // (na::zero(), na::zero(), 0.0)
+        // Cosine-sample the hemisphere, flipping the direction if necessary
+        let mut wi = cosine_sample_hemisphere(u1, u2);
+        if wo.z < 0.0 {
+            wi.z = wi.z * -1.0;
+        }
+        let l = self.f(wo, &wi);
+        let pdf = self.pdf(wo, &wi);
+        (l, wi, pdf)
+    }
+
     fn f(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> Spectrum;
     fn bxdf_type(&self) -> BxDFType;
 
     fn matches_flags(&self, bxdf_type: BxDFType) -> bool {
-        self.bxdf_type().intersects(bxdf_type)
+        (self.bxdf_type() & bxdf_type) == self.bxdf_type()
     }
 }
 
@@ -71,19 +98,10 @@ impl Lambertian {
 }
 
 impl BxDF for Lambertian {
-    #[inline]
-    fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Pdf { 0.0 }
-
-    #[inline]
-    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf) {
-        // TODO: implement this for path tracing
-        (na::zero(), na::zero(), self.pdf(wo, &na::zero()))
-    }
-
     /// diffuse surfaces emit the same amount of light in all directions
     #[inline]
     fn f(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Spectrum {
-        self.colour
+        self.colour * consts::FRAC_1_PI
     }
 
     #[inline]
@@ -119,7 +137,7 @@ impl BxDF for SpecularReflection {
     #[inline]
     fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Pdf { 0.0 }
 
-    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf) {
+    fn sample_f(&self, wo: &Vec3<f64>, _: f64, _: f64) -> (Spectrum, Vec3<f64>, Pdf) {
         let wi = Vec3::new(-wo.x, -wo.y, wo.z);
         let l = self.fresnel.evaluate(cos_theta(wo)) * self.r / cos_theta(&wi).abs();
         (l, wi, 1.0)
@@ -162,7 +180,7 @@ impl BxDF for SpecularTransmission {
     #[inline]
     fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Pdf { 0.0 }
 
-    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf) {
+    fn sample_f(&self, wo: &Vec3<f64>, _: f64, _: f64) -> (Spectrum, Vec3<f64>, Pdf) {
         let entering = cos_theta(wo) > 0.0;
         let (etai, etat) = if entering {
             (self.etai, self.etat)
@@ -262,7 +280,8 @@ impl BSDF {
 
         let (colour, wi, pdf) = match bxdf {
             Some(bxdf) => {
-                bxdf.sample_f(&wo)
+                let (u1, u2) = rng.gen::<(f64, f64)>();
+                bxdf.sample_f(&wo, u1, u2)
             },
             None => (na::zero(), na::zero(), 0.0)
         };

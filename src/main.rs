@@ -30,6 +30,7 @@ mod integrator;
 mod light;
 mod material;
 mod math;
+mod montecarlo;
 mod ray;
 mod renderer;
 mod scene;
@@ -235,7 +236,7 @@ fn main() {
     let nthreads = matches.value_of("THREADS").unwrap_or("1").parse::<u32>().ok().expect("Value for threads is not a valid unsigned integer");
     assert!(nthreads > 0);
 
-    let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, -2.5), na::zero()), width, height, consts::PI / 2.0, 0.01, 1000.0);
+    let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, -2.5), na::zero()), width, height, consts::FRAC_PI_2, 0.01, 1000.0);
     camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
     let camera = Arc::new(camera);
 

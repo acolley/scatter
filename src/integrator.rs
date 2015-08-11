@@ -75,7 +75,7 @@ where R: Rng,
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let (f, wi, pdf) = bsdf.sample_f(&wo, rng, BSDF_REFLECTION);
+    let (f, wi, pdf) = bsdf.sample_f(&wo, rng, BSDF_REFLECTION | BSDF_SPECULAR);
     if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
         // move the ray origin forward by a small amount in its direction
         // to avoid intersection with the surface we just came from
@@ -100,7 +100,7 @@ where R: Rng,
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let (f, wi, pdf) = bsdf.sample_f(&wo, rng, BSDF_TRANSMISSION);
+    let (f, wi, pdf) = bsdf.sample_f(&wo, rng, BSDF_TRANSMISSION | BSDF_SPECULAR);
     if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
         // move the ray origin forward by a small amount in its direction
         // to avoid intersection with the surface we just came from
