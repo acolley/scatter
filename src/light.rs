@@ -15,6 +15,8 @@ pub trait Light {
     /// incident light direction.
     fn sample(&self, p: &Pnt3<f64>) -> (Spectrum, Vec3<f64>);
 
+    fn le(&self, wi: &Vec3<f64>) -> Spectrum;
+
     fn shadow(&self, p: &Pnt3<f64>, scene: &Scene) -> bool;
 }
 
@@ -54,6 +56,11 @@ impl Light for PointLight {
         }
     }
 
+    #[inline]
+    fn le(&self, wi: &Vec3<f64>) -> Spectrum {
+        na::zero()
+    }
+
     /// Is the point p in shadow cast by this light?
     fn shadow(&self, p: &Pnt3<f64>, scene: &Scene) -> bool {
         let dist = (self.position - *p).norm();
@@ -88,6 +95,11 @@ impl Light for DirectionalLight {
     #[inline]
     fn sample(&self, _: &Pnt3<f64>) -> (Spectrum, Vec3<f64>) {
         (self.colour * self.intensity, -self.direction)
+    }
+
+    #[inline]
+    fn le(&self, wi: &Vec3<f64>) -> Spectrum {
+        na::zero()
     }
 
     #[inline]

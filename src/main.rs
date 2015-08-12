@@ -39,7 +39,7 @@ mod texture;
 
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
-use integrator::{Integrator, Whitted};
+use integrator::{Integrator, PathTraced, Whitted};
 use light::{DirectionalLight, PointLight};
 use material::{DiffuseMaterial, GlassMaterial, MirrorMaterial};
 use rand::{StdRng};
@@ -241,7 +241,8 @@ fn main() {
     let camera = Arc::new(camera);
 
     let scene = Arc::new(setup_scene());
-    let integrator = Whitted::new(depth);
+    // let integrator = Whitted::new(depth);
+    let integrator = PathTraced::new(depth);
     let renderer = Arc::new(StandardRenderer::new(integrator));
 
     let colours = render(width, height, nthreads, samples, &camera, &scene, &renderer);

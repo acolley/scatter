@@ -75,7 +75,7 @@ where R: Rng,
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let (f, wi, pdf) = bsdf.sample_f(&wo, rng, BSDF_REFLECTION | BSDF_SPECULAR);
+    let (f, wi, pdf, _) = bsdf.sample_f(&wo, rng, BSDF_REFLECTION | BSDF_SPECULAR);
     if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
         // move the ray origin forward by a small amount in its direction
         // to avoid intersection with the surface we just came from
@@ -100,7 +100,7 @@ where R: Rng,
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
-    let (f, wi, pdf) = bsdf.sample_f(&wo, rng, BSDF_TRANSMISSION | BSDF_SPECULAR);
+    let (f, wi, pdf, _) = bsdf.sample_f(&wo, rng, BSDF_TRANSMISSION | BSDF_SPECULAR);
     if pdf > 0.0 && f != na::zero() && na::dot(&wi, n) != 0.0 {
         // move the ray origin forward by a small amount in its direction
         // to avoid intersection with the surface we just came from
@@ -168,6 +168,90 @@ impl PathTraced {
             depth : depth
         }
     }
+
+    pub fn depth(&self) -> i32 { self.depth }
+}
+
+fn path_bounce<R, T>(
+    tracer: &PathTraced,
+    ray: &Ray,
+    isect: &Intersection,
+    scene: &Scene,
+    renderer: &T,
+    rng: &mut R,
+    bounce: i32,
+    throughput: Spectrum,
+    specular_bounce: bool) -> Spectrum
+where R: Rng,
+      T: Renderer {
+    let mut l = na::zero();
+    let bsdf = &isect.bsdf;
+    let wo = -(*ray.dir());
+    // TODO: add emitted light at path vertex
+    // if bounce == 0 || specular_bounce {
+    //     l = l + throughput * 
+    // }
+    if bounce < SAMPLE_DEPTH {
+        // TODO: this should perform proper sampling
+        // using Monte Carlo techniques, currently it's
+        // exactly the same as the other branch
+        l = l + throughput * sample_one_light(&wo, &isect, scene, rng);
+    } else {
+        l = l + throughput * sample_one_light(&wo, &isect, scene, rng);
+    }
+
+    let mut throughput = throughput.clone();
+
+    // sample BSDF to get next direction for path
+    let (f, wi, pdf, flags) = bsdf.sample_f(&wo, rng, BSDF_ALL);
+    if f == na::zero() || pdf == 0.0 {
+        return l;
+    }
+    let flags = flags.unwrap();
+    let specular_bounce = flags.intersects(BSDF_SPECULAR);
+    throughput = throughput * f * na::dot(&wi, &isect.normal).abs() / pdf;
+    let ray = Ray::new(isect.point, wi);
+
+    // possibly terminate the path
+    // TODO: add this back in when we have proper
+    // monte carlo sampling methods to make it worthwhile
+    // if bounce > 3 {
+    //     let continue_probability = f64::min(0.5, throughput.y);
+    //     if rng.next_f64() > continue_probability {
+    //         return l;
+    //     }
+    //     throughput = throughput / continue_probability;
+    // }
+
+    if bounce == tracer.depth() {
+        return l;
+    }
+
+    l = l + match scene.trace(&ray) {
+        Some(isect) => {
+            // TODO: take transmittance into account
+            path_bounce(
+                tracer,
+                &ray,
+                &isect,
+                scene,
+                renderer,
+                rng,
+                bounce + 1,
+                throughput,
+                specular_bounce
+            )
+        },
+        None => {
+            if specular_bounce {
+                // TODO: get light from all lights
+                // emitted in the incident direction
+                // given by wi
+            }
+            na::zero()
+        }
+    };
+    l
 }
 
 impl Integrator for PathTraced {
@@ -180,31 +264,16 @@ impl Integrator for PathTraced {
         rng: &mut R) -> Spectrum
     where R: Rng,
           T: Renderer {
-        let throughput = Vec3::new(1.0, 1.0, 1.0);
-        let mut specular_bounce = false;
-        let mut l = na::zero();
-        for bounce in 0..self.depth {
-            // add emitted light at path vertex
-            // if bounce == 0 || specular_bounce {
-            //     L = L + throughput * 
-            // }
-            // TODO: should be currently sampled path's Intersection's BSDF
-            let bsdf = &isect.bsdf;
-            let wo = -(*ray.dir());
-            if bounce < SAMPLE_DEPTH {
-                // TODO: this should perform proper sampling
-                // using Monte Carlo techniques, currently it's
-                // exactly the same as the other branch
-                l = l + throughput * sample_one_light(&wo, isect, scene, rng);
-            } else {
-                l = l + throughput * sample_one_light(&wo, isect, scene, rng);
-            }
-
-            // sample BSDF to get next direction for path
-            // TODO: return the type of path that was sampled
-            let (f, wi, _) = bsdf.sample_f(&wo, rng, BSDF_ALL);
-
-        }
-        l
+        path_bounce(
+            self,
+            ray,
+            isect,
+            scene,
+            renderer,
+            rng,
+            0,
+            Vec3::new(1.0, 1.0, 1.0),
+            false
+        )
     }
 }

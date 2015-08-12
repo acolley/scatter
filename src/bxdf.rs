@@ -270,7 +270,7 @@ impl BSDF {
     pub fn sample_f<R>(&self, 
                        wo_world: &Vec3<f64>, 
                        rng: &mut R,
-                       flags: BxDFType) -> (Spectrum, Vec3<f64>, Pdf)
+                       flags: BxDFType) -> (Spectrum, Vec3<f64>, Pdf, Option<BxDFType>)
     where R: Rng {
         let wo = self.world_to_local(wo_world);
 
@@ -278,17 +278,41 @@ impl BSDF {
         // choose a random bxdf from the matching ones
         let bxdf = rng.choose(&bxdfs);
 
-        let (colour, wi, pdf) = match bxdf {
+        match bxdf {
             Some(bxdf) => {
                 let (u1, u2) = rng.gen::<(f64, f64)>();
-                bxdf.sample_f(&wo, u1, u2)
+                let (mut colour, wi, mut pdf) = bxdf.sample_f(&wo, u1, u2);
+                let bxdf_type = bxdf.bxdf_type();
+
+                let wi_world = self.local_to_world(&wi);
+
+                // compute overall pdf with all matching BxDFs
+                if !bxdf_type.intersects(BSDF_SPECULAR) && bxdfs.len() > 1 {
+                    pdf = 0.0;
+                    for bxdf in self.bxdfs.iter().filter(|x| x.matches_flags(flags)) {
+                        pdf = pdf + bxdf.pdf(&wo, &wi);
+                    }
+                }
+                let pdf = if bxdfs.len() > 1 { pdf / bxdfs.len() as f64 } else { pdf };
+
+                // compute value of BSDF in sampled direction
+                if !bxdf_type.intersects(BSDF_SPECULAR) {
+                    colour = na::zero();
+                    let flags = if na::dot(&wi_world, &self.normal) * na::dot(wo_world, &self.normal) > 0.0 {
+                        // ignore BTDFs
+                        flags - BSDF_TRANSMISSION
+                    } else {
+                        // ignore BRDFs
+                        flags - BSDF_REFLECTION
+                    };
+                    for bxdf in self.bxdfs.iter().filter(|x| x.matches_flags(flags)) {
+                        colour = colour + bxdf.f(&wo, &wi);
+                    }
+                }
+                (colour, wi_world, pdf, Some(bxdf_type))
             },
-            None => (na::zero(), na::zero(), 0.0)
-        };
-
-        let wi = self.local_to_world(&wi);
-
-        (colour, wi, pdf)
+            None => (na::zero(), na::zero(), 0.0, None)
+        }
     }
 
     pub fn f(&self, wo_world: &Vec3<f64>, wi_world: &Vec3<f64>, flags: BxDFType) -> Spectrum {
@@ -306,9 +330,8 @@ impl BSDF {
             }
         };
 
-        let bxdfs = self.bxdfs.iter().filter(|x| x.matches_flags(flags));
         let mut f: Vec3<f64> = na::zero();
-        for bxdf in bxdfs {
+        for bxdf in self.bxdfs.iter().filter(|x| x.matches_flags(flags)) {
             f = f + bxdf.f(&wi, &wo);
         }
         f

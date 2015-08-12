@@ -2,6 +2,7 @@
 use na::{Pnt3, Vec3};
 use ncollide::ray::{Ray3};
 
+#[derive(Clone)]
 pub struct Ray {
     pub ray: Ray3<f64>,
 	pub depth: i32
