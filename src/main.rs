@@ -30,6 +30,7 @@ mod integrator;
 mod light;
 mod material;
 mod math;
+mod montecarlo;
 mod ray;
 mod renderer;
 mod scene;
@@ -38,7 +39,7 @@ mod texture;
 
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
-use integrator::{Integrator, Whitted};
+use integrator::{Integrator, PathTraced, Whitted};
 use light::{DirectionalLight, PointLight};
 use material::{DiffuseMaterial, GlassMaterial, MirrorMaterial};
 use rand::{StdRng};
@@ -67,14 +68,14 @@ where I: 'static + Integrator + Sync + Send {
         let scene = scene.clone();
         let renderer = renderer.clone();
         thread::spawn(move || {
-            let rng = StdRng::new().ok().expect("Could not create random number generator");
+            let mut rng = StdRng::new().ok().expect("Could not create random number generator");
             // let rng = StdRng.from_seed();
             for x in xstart..xend {
                 for y in 0..height {
                     let mut c: Vec3<f64> = na::zero();
                     if samples_per_pixel == 1 {
                     let ray = camera.ray_from(x as f64, y as f64);
-                        c = renderer.render(&ray, &scene);
+                        c = renderer.render(&ray, &scene, &mut rng);
                     } else {
                         for _ in 0..samples_per_pixel {
                             // TODO: make the sampling methods into their
@@ -83,7 +84,7 @@ where I: 'static + Integrator + Sync + Send {
                             let dx = rand::random::<f64>() - 0.5;
                             let dy = rand::random::<f64>() - 0.5;
                             let ray = camera.ray_from((x as f64) + dx, (y as f64) + dy);
-                            c = c + renderer.render(&ray, &scene);
+                            c = c + renderer.render(&ray, &scene, &mut rng);
                         }
                     }
                     c = c / (samples_per_pixel as f64);
@@ -134,7 +135,7 @@ fn setup_scene() -> Scene {
 
     let mut nodes = Vec::new();
 
-    let transform = Iso3::new(Vec3::new(1.0, -1.2, 0.8), na::zero());
+    let transform = Iso3::new(Vec3::new(1.0, -1.5, 0.8), na::zero());
     nodes.push(Arc::new(SceneNode::new(transform, 
                                        material_reflect.clone(),
                                        Box::new(Ball::new(0.6)))));
@@ -235,12 +236,13 @@ fn main() {
     let nthreads = matches.value_of("THREADS").unwrap_or("1").parse::<u32>().ok().expect("Value for threads is not a valid unsigned integer");
     assert!(nthreads > 0);
 
-    let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, -2.5), na::zero()), width, height, consts::PI / 2.0, 0.01, 1000.0);
+    let mut camera = PerspectiveCamera::new(Iso3::new(Vec3::new(0.0, 0.0, -2.5), na::zero()), width, height, consts::FRAC_PI_2, 0.01, 1000.0);
     camera.look_at_z(&Pnt3::new(0.0, 0.0, 0.0), &Vec3::y());
     let camera = Arc::new(camera);
 
     let scene = Arc::new(setup_scene());
-    let integrator = Whitted::new(depth);
+    // let integrator = Whitted::new(depth);
+    let integrator = PathTraced::new(depth);
     let renderer = Arc::new(StandardRenderer::new(integrator));
 
     let colours = render(width, height, nthreads, samples, &camera, &scene, &renderer);

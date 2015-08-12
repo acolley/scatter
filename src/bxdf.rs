@@ -1,4 +1,5 @@
 
+use std::f64::consts;
 use math;
 use spectrum::{Spectrum};
 
@@ -6,6 +7,8 @@ use na;
 use na::{Mat3, Rot3, Transform, Vec3};
 
 use math::{Clamp};
+use montecarlo::{cosine_sample_hemisphere};
+use rand::{Rng};
 
 pub type Pdf = f64;
 
@@ -45,15 +48,40 @@ fn sin_theta(v: &Vec3<f64>) -> f64 {
     sin_theta2(v).sqrt()
 }
 
+#[inline]
+fn same_hemisphere(w: &Vec3<f64>, wp: &Vec3<f64>) -> bool {
+    w.z * wp.z > 0.0
+}
+
 pub trait BxDF {
-    fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> Pdf;
+    fn pdf(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> Pdf {
+        if same_hemisphere(wo, wi) {
+            cos_theta(wi).abs() * consts::FRAC_1_PI
+        } else {
+            0.0
+        }
+    }
+
     /// Returns wi and the pdf
-    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf);
+    /// Default implementation returns a hemisphere
+    /// sampled direction and Pdf
+    fn sample_f(&self, wo: &Vec3<f64>, u1: f64, u2: f64) -> (Spectrum, Vec3<f64>, Pdf) {
+        // (na::zero(), na::zero(), 0.0)
+        // Cosine-sample the hemisphere, flipping the direction if necessary
+        let mut wi = cosine_sample_hemisphere(u1, u2);
+        if wo.z < 0.0 {
+            wi.z = wi.z * -1.0;
+        }
+        let l = self.f(wo, &wi);
+        let pdf = self.pdf(wo, &wi);
+        (l, wi, pdf)
+    }
+
     fn f(&self, wo: &Vec3<f64>, wi: &Vec3<f64>) -> Spectrum;
     fn bxdf_type(&self) -> BxDFType;
 
     fn matches_flags(&self, bxdf_type: BxDFType) -> bool {
-        self.bxdf_type().intersects(bxdf_type)
+        (self.bxdf_type() & bxdf_type) == self.bxdf_type()
     }
 }
 
@@ -70,18 +98,10 @@ impl Lambertian {
 }
 
 impl BxDF for Lambertian {
-    #[inline]
-    fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Pdf { 0.0 }
-
-    #[inline]
-    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf) {
-        (na::zero(), na::zero(), self.pdf(wo, &na::zero()))
-    }
-
     /// diffuse surfaces emit the same amount of light in all directions
     #[inline]
     fn f(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Spectrum {
-        self.colour
+        self.colour * consts::FRAC_1_PI
     }
 
     #[inline]
@@ -117,7 +137,7 @@ impl BxDF for SpecularReflection {
     #[inline]
     fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Pdf { 0.0 }
 
-    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf) {
+    fn sample_f(&self, wo: &Vec3<f64>, _: f64, _: f64) -> (Spectrum, Vec3<f64>, Pdf) {
         let wi = Vec3::new(-wo.x, -wo.y, wo.z);
         let l = self.fresnel.evaluate(cos_theta(wo)) * self.r / cos_theta(&wi).abs();
         (l, wi, 1.0)
@@ -160,7 +180,7 @@ impl BxDF for SpecularTransmission {
     #[inline]
     fn pdf(&self, _: &Vec3<f64>, _: &Vec3<f64>) -> Pdf { 0.0 }
 
-    fn sample_f(&self, wo: &Vec3<f64>) -> (Spectrum, Vec3<f64>, Pdf) {
+    fn sample_f(&self, wo: &Vec3<f64>, _: f64, _: f64) -> (Spectrum, Vec3<f64>, Pdf) {
         let entering = cos_theta(wo) > 0.0;
         let (etai, etat) = if entering {
             (self.etai, self.etat)
@@ -247,21 +267,52 @@ impl BSDF {
         self.world_to_local.inv_transform(v)
     }
 
-    pub fn sample_f(&self, wo_world: &Vec3<f64>, flags: BxDFType) -> (Spectrum, Vec3<f64>, Pdf) {
+    pub fn sample_f<R>(&self, 
+                       wo_world: &Vec3<f64>, 
+                       rng: &mut R,
+                       flags: BxDFType) -> (Spectrum, Vec3<f64>, Pdf, Option<BxDFType>)
+    where R: Rng {
         let wo = self.world_to_local(wo_world);
 
-        let mut bxdfs = self.bxdfs.iter().filter(|x| x.matches_flags(flags));
-        // Choose the first BxDF that matches the flags given
-        let (colour, wi, pdf) = match bxdfs.next() {
+        let bxdfs: Vec<&Box<BxDF>> = self.bxdfs.iter().filter(|x| x.matches_flags(flags)).collect();
+        // choose a random bxdf from the matching ones
+        let bxdf = rng.choose(&bxdfs);
+
+        match bxdf {
             Some(bxdf) => {
-                bxdf.sample_f(&wo)
+                let (u1, u2) = rng.gen::<(f64, f64)>();
+                let (mut colour, wi, mut pdf) = bxdf.sample_f(&wo, u1, u2);
+                let bxdf_type = bxdf.bxdf_type();
+
+                let wi_world = self.local_to_world(&wi);
+
+                // compute overall pdf with all matching BxDFs
+                if !bxdf_type.intersects(BSDF_SPECULAR) && bxdfs.len() > 1 {
+                    pdf = 0.0;
+                    for bxdf in self.bxdfs.iter().filter(|x| x.matches_flags(flags)) {
+                        pdf = pdf + bxdf.pdf(&wo, &wi);
+                    }
+                }
+                let pdf = if bxdfs.len() > 1 { pdf / bxdfs.len() as f64 } else { pdf };
+
+                // compute value of BSDF in sampled direction
+                if !bxdf_type.intersects(BSDF_SPECULAR) {
+                    colour = na::zero();
+                    let flags = if na::dot(&wi_world, &self.normal) * na::dot(wo_world, &self.normal) > 0.0 {
+                        // ignore BTDFs
+                        flags - BSDF_TRANSMISSION
+                    } else {
+                        // ignore BRDFs
+                        flags - BSDF_REFLECTION
+                    };
+                    for bxdf in self.bxdfs.iter().filter(|x| x.matches_flags(flags)) {
+                        colour = colour + bxdf.f(&wo, &wi);
+                    }
+                }
+                (colour, wi_world, pdf, Some(bxdf_type))
             },
-            None => (na::zero(), na::zero(), 0.0)
-        };
-
-        let wi = self.local_to_world(&wi);
-
-        (colour, wi, pdf)
+            None => (na::zero(), na::zero(), 0.0, None)
+        }
     }
 
     pub fn f(&self, wo_world: &Vec3<f64>, wi_world: &Vec3<f64>, flags: BxDFType) -> Spectrum {
@@ -272,16 +323,15 @@ impl BSDF {
         let flags = {
             if na::dot(wo_world, &self.normal) * na::dot(wi_world, &self.normal) > 0.0 {
                 // ignore BTDFs as the incident ray is on the outside of the surface
-                flags & !BSDF_TRANSMISSION
+                flags - BSDF_TRANSMISSION
             } else {
                 // ignore BRDFs as the incident ray is on the inside of the surface
-                flags & !BSDF_REFLECTION
+                flags - BSDF_REFLECTION
             }
         };
 
-        let bxdfs = self.bxdfs.iter().filter(|x| x.matches_flags(flags));
         let mut f: Vec3<f64> = na::zero();
-        for bxdf in bxdfs {
+        for bxdf in self.bxdfs.iter().filter(|x| x.matches_flags(flags)) {
             f = f + bxdf.f(&wi, &wo);
         }
         f
