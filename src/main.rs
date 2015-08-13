@@ -153,7 +153,8 @@ fn setup_scene() -> Scene {
     // floor
     let transform = Iso3::new(Vec3::new(0.0, -3.0, 0.0), na::zero());
     nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_white.clone(),
+                                       material_checker.clone(),
+                                       // material_white.clone(),
                                        Box::new(Cuboid::new(Vec3::new(3.0, 0.01, 3.0))))));
     // ceiling
     let transform = Iso3::new(Vec3::new(0.0, 2.9, 0.0), na::zero());
@@ -191,7 +192,7 @@ fn setup_scene() -> Scene {
     // scene.add_light(pnt_light_green);
     // let pnt_light_blue = Box::new(PointLight::new(1.0, Vec3::new(0.0, 0.0, 1.0), Pnt3::new(0.0, 15.0, 10.0), 500.0));
     // scene.add_light(pnt_light_blue);
-    let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(0.0, 2.0, 0.0), 10.0));
+    let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(0.0, 2.0, 0.0), 8.0));
     scene.add_light(pnt_light_white);
     // let pnt_light_white = Box::new(PointLight::new(1.0, Vec3::new(1.0, 1.0, 1.0), Pnt3::new(10.0, 25.0, 10.0), 500.0));
     // scene.add_light(pnt_light_white);
