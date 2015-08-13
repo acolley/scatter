@@ -210,7 +210,7 @@ where R: Rng,
     let flags = flags.unwrap();
     let specular_bounce = flags.intersects(BSDF_SPECULAR);
     throughput = throughput * f * na::dot(&wi, &isect.normal).abs() / pdf;
-    let ray = Ray::new(isect.point, wi);
+    let ray = Ray::new(isect.point + wi * 0.000000000001, wi);
 
     // possibly terminate the path
     // TODO: add this back in when we have proper
