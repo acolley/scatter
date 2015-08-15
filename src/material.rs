@@ -6,7 +6,7 @@ use bxdf::{BSDF, Lambertian, FresnelConductor, FresnelDielectric, SpecularReflec
 use texture::{Texture};
 
 pub trait Material {
-    fn get_bsdf(&self, normal: &Vec3<f64>, uvs: &Pnt2<f64>) -> BSDF;
+    fn get_bsdf(&self, normal: &Vec3<f64>, uvs: &Option<Pnt2<f64>>) -> BSDF;
 }
 
 pub struct DiffuseMaterial {
@@ -23,9 +23,9 @@ impl DiffuseMaterial {
 }
 
 impl Material for DiffuseMaterial {
-    fn get_bsdf(&self, normal: &Vec3<f64>, uvs: &Pnt2<f64>) -> BSDF {
+    fn get_bsdf(&self, normal: &Vec3<f64>, uvs: &Option<Pnt2<f64>>) -> BSDF {
         let mut bsdf = BSDF::new(*normal);
-        let f = self.texture.sample(uvs.x, uvs.y);
+        let f = self.texture.sample(uvs);
         bsdf.add_bxdf(Box::new(Lambertian::new(f)));
         bsdf
     }
@@ -34,7 +34,7 @@ impl Material for DiffuseMaterial {
 pub struct GlassMaterial;
 
 impl Material for GlassMaterial {
-    fn get_bsdf(&self, normal: &Vec3<f64>, _: &Pnt2<f64>) -> BSDF {
+    fn get_bsdf(&self, normal: &Vec3<f64>, _: &Option<Pnt2<f64>>) -> BSDF {
         let mut bsdf = BSDF::new(*normal);
         // refractive index for glass is 1.5
         bsdf.add_bxdf(Box::new(
@@ -53,7 +53,7 @@ impl Material for GlassMaterial {
 pub struct MirrorMaterial;
 
 impl Material for MirrorMaterial {
-    fn get_bsdf(&self, normal: &Vec3<f64>, _: &Pnt2<f64>) -> BSDF {
+    fn get_bsdf(&self, normal: &Vec3<f64>, _: &Option<Pnt2<f64>>) -> BSDF {
         let mut bsdf = BSDF::new(*normal);
         bsdf.add_bxdf(Box::new(
             SpecularReflection::new(

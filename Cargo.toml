@@ -10,6 +10,7 @@ image = "0.3.11"
 nalgebra = "0.2.20"
 rand = "0.3.8"
 rustc-serialize = "*"
+tobj = "0.0.9"
 uuid = "0.1.17"
 
 [dependencies.ncollide]

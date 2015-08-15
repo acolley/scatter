@@ -2,11 +2,12 @@
 use std::sync::Arc;
 
 use image::{GenericImage, RgbImage};
-use na::{Vec3};
+use na;
+use na::{Pnt2, Vec3};
 use spectrum::{Spectrum};
 
 pub trait Texture {
-	fn sample(&self, u: f64, v: f64) -> Spectrum;
+	fn sample(&self, uv: &Option<Pnt2<f64>>) -> Spectrum;
 }
 
 /// A Texture that just has a single
@@ -25,7 +26,7 @@ impl ConstantTexture {
 
 impl Texture for ConstantTexture {
     #[inline]
-    fn sample(&self, _: f64, _: f64) -> Spectrum {
+    fn sample(&self, _: &Option<Pnt2<f64>>) -> Spectrum {
         self.colour
     }
 }
@@ -45,13 +46,18 @@ impl ImageTexture {
 }
 
 impl Texture for ImageTexture {
-    fn sample(&self, u: f64, v: f64) -> Spectrum {
-        let (width, height) = self.data.dimensions();
-        let x = (u * width as f64).round() as u32 % width;
-        let y = (v * height as f64).round() as u32 % height;
-        let p = self.data.get_pixel(x, y);
-        Vec3::new(p[0] as f64 / 255.0, 
-                  p[1] as f64 / 255.0, 
-                  p[2] as f64 / 255.0)
+    fn sample(&self, uv: &Option<Pnt2<f64>>) -> Spectrum {
+        match *uv {
+            Some(uv) => {
+                let (width, height) = self.data.dimensions();
+                let x = (uv.x * width as f64).round() as u32 % width;
+                let y = (uv.y * height as f64).round() as u32 % height;
+                let p = self.data.get_pixel(x, y);
+                Vec3::new(p[0] as f64 / 255.0, 
+                          p[1] as f64 / 255.0, 
+                          p[2] as f64 / 255.0)
+            },
+            None => na::zero()
+        }
     }
 }
