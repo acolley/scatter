@@ -14,6 +14,10 @@ use spectrum::{Spectrum};
 // sampling techniques in path tracing
 const SAMPLE_DEPTH: i32 = 3;
 
+fn luminance(c: &Spectrum) -> f64 {
+    c.x * 0.2126 + c.y * 0.7152 + c.z * 0.0722
+}
+
 #[inline]
 fn sample_light(light: &Box<Light + Send + Sync>,
                 wo: &Vec3<f64>,
@@ -212,16 +216,14 @@ where R: Rng,
     throughput = throughput * f * na::dot(&wi, &isect.normal).abs() / pdf;
     let ray = Ray::new(isect.point + wi * 0.000000000001, wi);
 
-    // possibly terminate the path
-    // TODO: add this back in when we have proper
-    // monte carlo sampling methods to make it worthwhile
-    // if bounce > 3 {
-    //     let continue_probability = f64::min(0.5, throughput.y);
-    //     if rng.next_f64() > continue_probability {
-    //         return l;
-    //     }
-    //     throughput = throughput / continue_probability;
-    // }
+    // possibly terminate the path using russian roulette
+    if bounce > 3 {
+        let continue_probability = f64::min(0.5, luminance(&throughput));
+        if rng.next_f64() > continue_probability {
+            return l;
+        }
+        throughput = throughput / continue_probability;
+    }
 
     if bounce == tracer.depth() {
         return l;
