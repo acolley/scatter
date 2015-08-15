@@ -71,7 +71,7 @@ fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneN
     let mut nearest_node: Option<&SceneNode> = None;
     let mut nearest_toi = std::f64::MAX;
     let mut nearest_normal = na::zero();
-    let mut nearest_uvs = None;Pnt2::new(0.0, 0.0);
+    let mut nearest_uvs = None;
     for node in nodes {
         match node.geom.toi_and_normal_and_uv_with_ray(&node.transform, &ray.ray, false) {
             Some(isect) => {
@@ -85,7 +85,6 @@ fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneN
                     nearest_node = Some(node);
                     nearest_toi = isect.toi;
                     nearest_normal = isect.normal;
-                    // TODO: handle the case where uvs are not present
                     nearest_uvs = isect.uvs;
                 }
             },

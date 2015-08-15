@@ -59,7 +59,6 @@ fn load_obj(filename: &Path) -> Vec<TriMesh<Pnt3<f64>>> {
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
         let mut uvs = Vec::new();
-        let mut normals = Vec::new();
 
         for i in 0..mesh.indices.len() / 3 {
             indices.push(
@@ -84,22 +83,34 @@ fn load_obj(filename: &Path) -> Vec<TriMesh<Pnt3<f64>>> {
             );
         }
 
-        for n in 0..mesh.normals.len() / 3 {
-            normals.push(
-                Vec3::new(mesh.normals[n * 3] as f64,
-                          mesh.normals[n * 3 + 1] as f64,
-                          mesh.normals[n * 3 + 2] as f64)
-            );
-        }
+        let normals = if mesh.normals.len() > 0 {
+            let mut normals = Vec::new();
+            for n in 0..mesh.normals.len() / 3 {
+                normals.push(
+                    Vec3::new(mesh.normals[n * 3] as f64,
+                              mesh.normals[n * 3 + 1] as f64,
+                              mesh.normals[n * 3 + 2] as f64)
+                );
+            }
+            Some(Arc::new(normals))
+        } else {
+            let mut normals = Vec::new();
+            for idx in indices.iter() {
+                let v1 = vertices[idx.x];
+                let v2 = vertices[idx.y];
+                let v3 = vertices[idx.z];
+                normals.push(na::cross(&(v2 - v1), &(v3 - v1)));
+            }
+            Some(Arc::new(normals))
+        };
 
         let uvs = if uvs.len() > 0 { Some(Arc::new(uvs)) } else { None };
-        let normals = if normals.len() > 0 { Some(Arc::new(normals)) } else { None };
 
         meshes.push(TriMesh::new(
             Arc::new(vertices),
             Arc::new(indices),
             uvs, // TODO: get uv coords
-            normals // TODO: calculate normals
+            normals
         ))
     }
     meshes
@@ -178,7 +189,7 @@ where I: 'static + Integrator + Sync + Send {
 fn setup_scene() -> Scene {
     let teximg = Arc::new(image::open(&Path::new("resources/checker_huge.gif")).unwrap().to_rgb());
 
-    // let rabbit = load_obj(&Path::new("bunny.obj"));
+    let ref rabbit = load_obj(&Path::new("bunny.obj"))[0];
 
     let white = Vec3::new(1.0, 1.0, 1.0);
     let yellow = Vec3::new(1.0, 1.0, 0.5);
@@ -203,6 +214,11 @@ fn setup_scene() -> Scene {
     nodes.push(Arc::new(SceneNode::new(transform, 
                                        material_glass.clone(),
                                        Box::new(Ball::new(0.6)))));
+
+    // let transform = Iso3::new(Vec3::new(0.0, 0.0, -2.2), na::zero());
+    // nodes.push(Arc::new(SceneNode::new(transform, 
+    //                                    material_yellow.clone(),
+    //                                    Box::new(rabbit.clone()))));
 
     // let transform = Iso3::new(Vec3::new(-1.0, -1.25, 0.2), na::zero());
     // nodes.push(Arc::new(SceneNode::new(transform, 
