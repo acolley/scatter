@@ -67,11 +67,11 @@ pub struct Scene {
 
 /// Get the nearest node and surface info at the intersection
 /// point intersected by the given ray.
-fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneNode, f64, Vec3<f64>, Pnt2<f64>)> {
+fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneNode, f64, Vec3<f64>, Option<Pnt2<f64>>)> {
     let mut nearest_node: Option<&SceneNode> = None;
     let mut nearest_toi = std::f64::MAX;
     let mut nearest_normal = na::zero();
-    let mut nearest_uvs = Pnt2::new(0.0, 0.0);
+    let mut nearest_uvs = None;Pnt2::new(0.0, 0.0);
     for node in nodes {
         match node.geom.toi_and_normal_and_uv_with_ray(&node.transform, &ray.ray, false) {
             Some(isect) => {
@@ -86,7 +86,7 @@ fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneN
                     nearest_toi = isect.toi;
                     nearest_normal = isect.normal;
                     // TODO: handle the case where uvs are not present
-                    nearest_uvs = isect.uvs.unwrap();
+                    nearest_uvs = isect.uvs;
                 }
             },
             _ => {}

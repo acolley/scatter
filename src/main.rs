@@ -8,6 +8,7 @@ extern crate uuid;
 #[macro_use(assert_approx_eq)]
 extern crate nalgebra as na;
 extern crate ncollide;
+extern crate tobj;
 
 use std::collections::HashMap;
 use std::f64::consts;
@@ -18,9 +19,9 @@ use std::sync::mpsc;
 use std::thread;
 use std::u32;
 
-use self::na::{Iso3, Pnt3, Vec3, Translate};
+use self::na::{Iso3, Pnt2, Pnt3, Vec3, Translate};
 use ncollide::ray::{Ray3};
-use ncollide::shape::{Ball, Cuboid};
+use ncollide::shape::{Ball, Cuboid, TriMesh};
 use ncollide::math::{Point};
 use ncollide::bounding_volume::{BoundingSphere};
 
@@ -47,6 +48,62 @@ use renderer::{Renderer, StandardRenderer};
 use scene::{Scene, SceneNode};
 use spectrum::Spectrum;
 use texture::{ConstantTexture, ImageTexture};
+
+fn load_obj(filename: &Path) -> Vec<TriMesh<Pnt3<f64>>> {
+    let obj = tobj::load_obj(filename);
+    let (models, materials) = obj.ok().expect("Could not load .obj");
+    let mut meshes = Vec::new();
+
+    for model in models {
+        let mesh = &model.mesh;
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+        let mut uvs = Vec::new();
+        let mut normals = Vec::new();
+
+        for i in 0..mesh.indices.len() / 3 {
+            indices.push(
+                Pnt3::new(mesh.indices[i * 3] as usize, 
+                          mesh.indices[i * 3 + 1] as usize, 
+                          mesh.indices[i * 3 + 2] as usize)
+            );
+        }
+
+        for v in 0..mesh.positions.len() / 3 {
+            vertices.push(
+                Pnt3::new(mesh.positions[v * 3] as f64, 
+                          mesh.positions[v * 3 + 1] as f64, 
+                          mesh.positions[v * 3 + 2] as f64)
+            );
+        }
+
+        for t in 0..mesh.texcoords.len() / 2 {
+            uvs.push(
+                Pnt2::new(mesh.texcoords[t * 2] as f64, 
+                          mesh.texcoords[t * 2 + 1] as f64)
+            );
+        }
+
+        for n in 0..mesh.normals.len() / 3 {
+            normals.push(
+                Vec3::new(mesh.normals[n * 3] as f64,
+                          mesh.normals[n * 3 + 1] as f64,
+                          mesh.normals[n * 3 + 2] as f64)
+            );
+        }
+
+        let uvs = if uvs.len() > 0 { Some(Arc::new(uvs)) } else { None };
+        let normals = if normals.len() > 0 { Some(Arc::new(normals)) } else { None };
+
+        meshes.push(TriMesh::new(
+            Arc::new(vertices),
+            Arc::new(indices),
+            uvs, // TODO: get uv coords
+            normals // TODO: calculate normals
+        ))
+    }
+    meshes
+}
 
 fn render<I>(width: u32, 
              height: u32, 
@@ -120,6 +177,8 @@ where I: 'static + Integrator + Sync + Send {
 
 fn setup_scene() -> Scene {
     let teximg = Arc::new(image::open(&Path::new("resources/checker_huge.gif")).unwrap().to_rgb());
+
+    // let rabbit = load_obj(&Path::new("bunny.obj"));
 
     let white = Vec3::new(1.0, 1.0, 1.0);
     let yellow = Vec3::new(1.0, 1.0, 0.5);
