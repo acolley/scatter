@@ -1,9 +1,11 @@
 
 use std::sync::Arc;
 
-use image::{GenericImage, RgbImage};
 use na;
 use na::{Pnt2, Vec3};
+
+use image::{GenericImage, RgbImage};
+use math::{Scalar};
 use spectrum::{Spectrum};
 
 pub trait Texture {
@@ -53,9 +55,9 @@ impl Texture for ImageTexture {
                 let x = (uv.x * width as f64).round() as u32 % width;
                 let y = (uv.y * height as f64).round() as u32 % height;
                 let p = self.data.get_pixel(x, y);
-                Vec3::new(p[0] as f64 / 255.0, 
-                          p[1] as f64 / 255.0, 
-                          p[2] as f64 / 255.0)
+                Spectrum::new(p[0] as Scalar / 255.0, 
+                              p[1] as Scalar / 255.0, 
+                              p[2] as Scalar / 255.0)
             },
             None => na::zero()
         }

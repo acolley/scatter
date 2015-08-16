@@ -1,17 +1,21 @@
 
 use na;
-use na::{Norm, Vec3};
+use na::{Norm, Pnt3, Vec3};
 
-pub type Normal = Vec3<f64>;
+// TODO: allow scalar to be adjusted with a cfg build flag
+pub type Scalar = f64;
+pub type Point = Pnt3<Scalar>;
+pub type Vector = Vec3<Scalar>;
+pub type Normal = Vector;
 
-pub fn coordinate_system(v1: &Vec3<f64>) -> (Vec3<f64>, Vec3<f64>) {
+pub fn coordinate_system(v1: &Vector) -> (Vector, Vector) {
     let v2 = {
         if v1.x.abs() > v1.y.abs() {
             let invlen = 1.0 / (v1.x * v1.x + v1.z * v1.z).sqrt();
-            Vec3::new(-v1.z * invlen, 0.0, v1.x * invlen)
+            Vector::new(-v1.z * invlen, 0.0, v1.x * invlen)
         } else {
             let invlen = 1.0 / (v1.y * v1.y + v1.z * v1.z).sqrt();
-            Vec3::new(0.0, v1.z * invlen, -v1.y * invlen)
+            Vector::new(0.0, v1.z * invlen, -v1.y * invlen)
         }
     };
     let v3 = na::cross(v1, &v2);
@@ -20,7 +24,7 @@ pub fn coordinate_system(v1: &Vec3<f64>) -> (Vec3<f64>, Vec3<f64>) {
 
 /// Reflect a vector `v` around an arbitrary normal vector
 /// `n`. The normal is assumed to be normalized.
-pub fn reflect(v: &Vec3<f64>, n: &Normal) -> Vec3<f64> {
+pub fn reflect(v: &Vector, n: &Normal) -> Vector {
     let mut reflected = *v - *n * 2.0 * (na::dot(v, n));
     reflected.normalize_mut();
     reflected
@@ -30,8 +34,8 @@ pub trait Clamp {
     fn clamp(&self, min: Self, max: Self) -> Self;
 }
 
-impl Clamp for f64 {
-    fn clamp(&self, min: f64, max: f64) -> f64 {
+impl Clamp for Scalar {
+    fn clamp(&self, min: Scalar, max: Scalar) -> Scalar {
         assert!(min <= max);
         if *self < min {
             min

@@ -1,9 +1,9 @@
 
 use na;
-use na::{Vec3};
 
 use bxdf::{BxDFType, BSDF_ALL, BSDF_REFLECTION, BSDF_SPECULAR, BSDF_TRANSMISSION};
 use light::{Light};
+use math::{Scalar, Vector};
 use rand::{Rng};
 use ray::{Ray};
 use renderer::{Renderer};
@@ -14,13 +14,13 @@ use spectrum::{Spectrum};
 // sampling techniques in path tracing
 const SAMPLE_DEPTH: i32 = 3;
 
-fn luminance(c: &Spectrum) -> f64 {
+fn luminance(c: &Spectrum) -> Scalar {
     c.x * 0.2126 + c.y * 0.7152 + c.z * 0.0722
 }
 
 #[inline]
 fn sample_light(light: &Box<Light + Send + Sync>,
-                wo: &Vec3<f64>,
+                wo: &Vector,
                 isect: &Intersection,
                 scene: &Scene,
                 flags: BxDFType) -> Spectrum {
@@ -38,7 +38,7 @@ fn sample_light(light: &Box<Light + Send + Sync>,
 }
 
 pub fn sample_one_light<R>(
-    wo: &Vec3<f64>,
+    wo: &Vector,
     isect: &Intersection,
     scene: &Scene,
     rng: &mut R) -> Spectrum
@@ -56,7 +56,7 @@ where R: Rng {
 /// Integrate over all lights computing
 /// direct lighting at a surface point
 /// and sampling the BSDF at the intersection.
-pub fn sample_all_lights(wo: &Vec3<f64>, 
+pub fn sample_all_lights(wo: &Vector, 
                          isect: &Intersection,
                          scene: &Scene) -> Spectrum {
     let bsdf = &isect.bsdf;
@@ -274,7 +274,7 @@ impl Integrator for PathTraced {
             renderer,
             rng,
             0,
-            Vec3::new(1.0, 1.0, 1.0),
+            Vector::new(1.0, 1.0, 1.0),
             false
         )
     }

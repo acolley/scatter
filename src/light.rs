@@ -2,6 +2,7 @@
 use na;
 use na::{Norm, Pnt3, Vec3};
 
+use math::{Normal, Point, Scalar, Vector};
 use ray::{Ray};
 use scene::{Scene};
 use spectrum::{Spectrum};
@@ -9,26 +10,29 @@ use spectrum::{Spectrum};
 pub trait Light {
     fn colour(&self) -> &Spectrum;
 
+    fn is_delta(&self) -> bool;
+
     /// Sample the light given a point and its shading
     /// normal in world space, returning a Spectrum and
     /// a normalized vector indicating the
     /// incident light direction.
-    fn sample(&self, p: &Pnt3<f64>) -> (Spectrum, Vec3<f64>);
+    fn sample(&self, p: &Point) -> (Spectrum, Vector);
 
-    fn le(&self, wi: &Vec3<f64>) -> Spectrum;
+    #[inline]
+    fn emitted(&self, wi: &Vector) -> Spectrum { na::zero() }
 
-    fn shadow(&self, p: &Pnt3<f64>, scene: &Scene) -> bool;
+    fn shadow(&self, p: &Point, scene: &Scene) -> bool;
 }
 
 pub struct PointLight {
-    intensity: f64,
+    intensity: Scalar,
     colour: Spectrum,
-	position: Pnt3<f64>,
-    radius: f64
+	position: Point,
+    radius: Scalar
 }
 
 impl PointLight {
-    pub fn new(intensity: f64, colour: Spectrum, position: Pnt3<f64>, radius: f64) -> PointLight {
+    pub fn new(intensity: Scalar, colour: Spectrum, position: Point, radius: Scalar) -> PointLight {
         PointLight {
             intensity : intensity,
             colour : colour,
@@ -41,9 +45,11 @@ impl PointLight {
 impl Light for PointLight {
     fn colour(&self) -> &Spectrum { &self.colour }
 
+    fn is_delta(&self) -> bool { true }
+
     /// Give the amount of incident light at a particular
     /// point in the scene.
-    fn sample(&self, p: &Pnt3<f64>) -> (Spectrum, Vec3<f64>) {
+    fn sample(&self, p: &Point) -> (Spectrum, Vector) {
         let mut wi = self.position - *p;
         let dist = wi.sqnorm();
         wi.normalize_mut();
@@ -56,14 +62,9 @@ impl Light for PointLight {
         }
     }
 
-    #[inline]
-    fn le(&self, wi: &Vec3<f64>) -> Spectrum {
-        na::zero()
-    }
-
     /// Is the point p in shadow cast by this light?
-    fn shadow(&self, p: &Pnt3<f64>, scene: &Scene) -> bool {
-        let dist = (self.position - *p).norm();
+    fn shadow(&self, p: &Point, scene: &Scene) -> bool {
+        let dist = na::dist(&self.position, p);
         let mut dir = self.position - *p;
         dir.normalize_mut();
         let ray = Ray::new(*p, dir);
@@ -73,13 +74,13 @@ impl Light for PointLight {
 }
 
 pub struct DirectionalLight {
-    intensity: f64,
+    intensity: Scalar,
     colour: Spectrum,
-    direction: Vec3<f64>
+    direction: Vector
 }
 
 impl DirectionalLight {
-    pub fn new(intensity: f64, colour: Spectrum, direction: Vec3<f64>) -> DirectionalLight {
+    pub fn new(intensity: Scalar, colour: Spectrum, direction: Vector) -> DirectionalLight {
         DirectionalLight {
             intensity : intensity,
             colour : colour,
@@ -92,21 +93,24 @@ impl Light for DirectionalLight {
     #[inline]
     fn colour(&self) -> &Spectrum { &self.colour }
 
+    fn is_delta(&self) -> bool { true }
+
     #[inline]
-    fn sample(&self, _: &Pnt3<f64>) -> (Spectrum, Vec3<f64>) {
+    fn sample(&self, _: &Point) -> (Spectrum, Vector) {
         (self.colour * self.intensity, -self.direction)
     }
 
     #[inline]
-    fn le(&self, wi: &Vec3<f64>) -> Spectrum {
-        na::zero()
-    }
-
-    #[inline]
-    fn shadow(&self, _: &Pnt3<f64>, _: &Scene) -> bool {
+    fn shadow(&self, _: &Point, _: &Scene) -> bool {
         // No point can be in shadow from a global directional light
         false
     }
+}
+
+pub trait AreaLight : Light {
+    fn is_delta(&self) -> bool { false }
+
+    fn radiance(&self, p: &Point, n: &Normal, w: &Vector) -> Spectrum;
 }
 
 // #[test]

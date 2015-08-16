@@ -12,29 +12,29 @@ use ncollide::ray::{RayCast, RayInterferencesCollector};
 use bxdf::{BSDF};
 use light::{Light};
 use material::{Material};
-use math::{Normal};
+use math::{Normal, Point, Scalar, Vector};
 use ray::{Ray};
 
 /// Structure representing an object in the 
 /// Scene that can be shaded.
 pub struct SceneNode {
     pub uuid: Uuid,
-    pub transform: Iso3<f64>,
+    pub transform: Iso3<Scalar>,
     pub material: Arc<Material + Sync + Send>,
-    pub geom: Box<RayCast<Pnt3<f64>, Iso3<f64>> + Sync + Send>,
-    pub aabb: AABB3<f64>
+    pub geom: Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>,
+    pub aabb: AABB3<Scalar>
 }
 
 /// Structure storing information about an
 /// object that was intersected in the Scene.
 pub struct Intersection {
-    pub point: Pnt3<f64>,
+    pub point: Point,
     pub normal: Normal,
     pub bsdf: BSDF
 }
 
 impl Intersection {
-    pub fn new(p: Pnt3<f64>, n: Normal, bsdf: BSDF) -> Intersection {
+    pub fn new(p: Point, n: Normal, bsdf: BSDF) -> Intersection {
         Intersection {
             point : p,
             normal : n,
@@ -45,11 +45,11 @@ impl Intersection {
 
 impl SceneNode {
     pub fn new<M, N>(
-        transform: Iso3<f64>,
+        transform: Iso3<Scalar>,
         material: Arc<M>,
         geom: Box<N>) -> SceneNode
     where M: 'static + Sync + Send + Material,
-          N: 'static + Sync + Send + RayCast<Pnt3<f64>, Iso3<f64>> + HasAABB<Pnt3<f64>, Iso3<f64>> {
+          N: 'static + Sync + Send + RayCast<Point, Iso3<Scalar>> + HasAABB<Point, Iso3<Scalar>> {
         SceneNode {
             uuid : Uuid::new_v4(),
             transform : transform,
@@ -62,12 +62,12 @@ impl SceneNode {
 
 pub struct Scene {
 	pub lights: Vec<Box<Light + Sync + Send>>,
-    world: BVT<Arc<SceneNode>, AABB3<f64>>
+    world: BVT<Arc<SceneNode>, AABB3<Scalar>>
 }
 
 /// Get the nearest node and surface info at the intersection
 /// point intersected by the given ray.
-fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneNode, f64, Vec3<f64>, Option<Pnt2<f64>>)> {
+fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneNode, f64, Vector, Option<Pnt2<f64>>)> {
     let mut nearest_node: Option<&SceneNode> = None;
     let mut nearest_toi = std::f64::MAX;
     let mut nearest_normal = na::zero();
