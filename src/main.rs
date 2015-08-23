@@ -21,8 +21,7 @@ use std::u32;
 
 use self::na::{Iso3, Pnt2, Pnt3, Vec3, Translate};
 use ncollide::ray::{Ray3};
-use ncollide::shape::{Ball, Cuboid, TriMesh};
-// use ncollide::math::{Point};
+use ncollide::shape::{Ball, Cuboid, TriMesh3};
 use ncollide::bounding_volume::{BoundingSphere};
 
 mod bxdf;
@@ -50,7 +49,7 @@ use scene::{Scene, SceneNode};
 use spectrum::Spectrum;
 use texture::{ConstantTexture, ImageTexture};
 
-fn load_obj(filename: &Path) -> Vec<TriMesh<Point>> {
+fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
     let obj = tobj::load_obj(filename);
     let (models, materials) = obj.ok().expect("Could not load .obj");
     let mut meshes = Vec::new();
@@ -107,7 +106,7 @@ fn load_obj(filename: &Path) -> Vec<TriMesh<Point>> {
 
         let uvs = if uvs.len() > 0 { Some(Arc::new(uvs)) } else { None };
 
-        meshes.push(TriMesh::new(
+        meshes.push(TriMesh3::new(
             Arc::new(vertices),
             Arc::new(indices),
             uvs,
@@ -216,10 +215,10 @@ fn setup_scene() -> Scene {
                                        material_glass.clone(),
                                        Box::new(Ball::new(0.6)))));
 
-    // let transform = Iso3::new(Vector::new(0.0, 0.0, -2.2), na::zero());
-    // nodes.push(Arc::new(SceneNode::new(transform, 
-    //                                    material_yellow.clone(),
-    //                                    Box::new(rabbit.clone()))));
+    let transform = Iso3::new(Vector::new(0.0, 0.0, -2.2), na::zero());
+    nodes.push(Arc::new(SceneNode::new(transform, 
+                                       material_yellow.clone(),
+                                       Box::new(rabbit.clone()))));
 
     // let transform = Iso3::new(Vector::new(-1.0, -1.25, 0.2), na::zero());
     // nodes.push(Arc::new(SceneNode::new(transform, 
@@ -259,7 +258,7 @@ fn setup_scene() -> Scene {
     let mut scene = Scene::new(nodes);
 
 
-    // let dir_light = Box::new(DirectionalLight::new(1.0, na::one(), -Vector::y()));
+    // let dir_light = Box::new(DirectionalLight::new(Spectrum::new(0.2, 0.2, 0.2), na::normalize(&Vector::new(0.0, -1.0, 1.0))));
     // scene.add_light(dir_light);
     // let pnt_light_red = Box::new(PointLight::new(1.0, Vector::new(1.0, 0.0, 0.0), Point::new(10.0, 0.0, 0.0), 500.0));
     // scene.add_light(pnt_light_red);
@@ -317,8 +316,8 @@ fn main() {
     let camera = Arc::new(camera);
 
     let scene = Arc::new(setup_scene());
-    // let integrator = Whitted::new(depth);
-    let integrator = PathTraced::new(depth);
+    let integrator = Whitted::new(depth);
+    // let integrator = PathTraced::new(depth);
     let renderer = Arc::new(StandardRenderer::new(integrator));
 
     let colours = render(width, height, nthreads, samples, &camera, &scene, &renderer);

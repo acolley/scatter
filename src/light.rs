@@ -1,8 +1,13 @@
 
+use std::f64::consts;
+
 use na;
 use na::{Norm, Pnt3, Vec3};
 
-use math::{Normal, Point, Scalar, Vector};
+use ncollide::utils::{triangle_area};
+use ncollide::shape::{Ball3, Cuboid3, Triangle3, TriMesh3};
+
+use math::{Normal, Point, Scalar, Vector, uniform_sample_sphere};
 use ray::{Ray};
 use scene::{Scene};
 use spectrum::{Spectrum};
@@ -10,6 +15,7 @@ use spectrum::{Spectrum};
 pub trait Light {
     fn colour(&self) -> &Spectrum;
 
+    // fn power(&self) -> Scalar;
     fn is_delta(&self) -> bool;
 
     /// Sample the light given a point and its shading
@@ -74,15 +80,13 @@ impl Light for PointLight {
 }
 
 pub struct DirectionalLight {
-    intensity: Scalar,
     colour: Spectrum,
     direction: Vector
 }
 
 impl DirectionalLight {
-    pub fn new(intensity: Scalar, colour: Spectrum, direction: Vector) -> DirectionalLight {
+    pub fn new(colour: Spectrum, direction: Vector) -> DirectionalLight {
         DirectionalLight {
-            intensity : intensity,
             colour : colour,
             direction : direction
         }
@@ -93,11 +97,12 @@ impl Light for DirectionalLight {
     #[inline]
     fn colour(&self) -> &Spectrum { &self.colour }
 
+    #[inline]
     fn is_delta(&self) -> bool { true }
 
     #[inline]
     fn sample(&self, _: &Point) -> (Spectrum, Vector) {
-        (self.colour * self.intensity, -self.direction)
+        (self.colour, -self.direction)
     }
 
     #[inline]
@@ -107,11 +112,123 @@ impl Light for DirectionalLight {
     }
 }
 
-pub trait AreaLight : Light {
-    fn is_delta(&self) -> bool { false }
+// pub struct SpotLight {
+//     colour: Spectrum,
+//     direction: Vector,
+//     theta: Scalar
+// }
 
-    fn radiance(&self, p: &Point, n: &Normal, w: &Vector) -> Spectrum;
-}
+// impl Light for SpotLight {
+//     #[inline]
+//     fn colour(&self) -> &Spectrum { &self.colour }
+
+//     #[inline]
+//     fn is_delta(&self) -> bool { true }
+// }
+
+// pub trait AreaLight : Light {
+//     fn radiance(&self, p: &Point, n: &Normal, w: &Vector) -> Spectrum;
+// }
+
+// pub struct DiffuseLight {
+//     emit: Spectrum,
+//     area: Scalar
+// }
+
+// impl Light for DiffuseLight {
+//     #[inline]
+//     fn colour(&self) -> &Spectrum { &self.emit }
+
+//     #[inline]
+//     fn sample(&self, p: &Point) -> (Spectrum, Vector) {
+//         (na::zero(), na::zero())
+//     }
+//     #[inline]
+//     fn is_delta(&self) -> bool { false }
+
+//     #[inline]
+//     fn shadow(&self, p: &Point, scene: &Scene) -> bool {
+//         true
+//     }
+// }
+
+// impl AreaLight for DiffuseLight {
+//     #[inline]
+//     fn radiance(&self, p: &Point, n: &Normal, w: &Vector) -> Spectrum {
+//         if na::dot(w, n) > 0.0 { self.emit } else { na::zero() }
+//     }
+// }
+
+// /// A trait for designating a Shape as being an
+// /// emitter for radiance.
+// pub trait ShapeEmitter {
+//     fn area(&self) -> Scalar;
+//     fn sample(&self, u1: Scalar, u2: Scalar) -> (Point, Normal);
+
+//     fn sample_at_point(&self, p: &Point, u1: Scalar, u2: Scalar) -> (Point, Normal) {
+//         self.sample(u1, u2)
+//     }
+// }
+
+// impl ShapeEmitter for Triangle3<Scalar> {
+//     #[inline]
+//     fn area(&self) -> Scalar {
+//         triangle_area(self.a(), self.b(), self.c())
+//     }
+
+//     #[inline]
+//     fn sample(&self, u1: Scalar, u2: Scalar) -> (Point, Normal) {
+//         (na::zero(), na::zero())
+//     }
+// }
+
+// impl ShapeEmitter for TriMesh3<Scalar> {
+//     #[inline]
+//     fn area(&self) -> Scalar {
+//         let mut area = 0.0;
+//         for idx in self.indices().iter() {
+//             let p1 = self.vertices()[idx.x];
+//             let p2 = self.vertices()[idx.y];
+//             let p3 = self.vertices()[idx.z];
+//             area = area + triangle_area(&p1, &p2, &p3);
+//         }
+//         area
+//     }
+
+//     #[inline]
+//     fn sample(&self, u1: Scalar, u2: Scalar) -> (Point, Normal) {
+//         (na::zero(), na::zero())
+//     }
+// }
+
+// impl ShapeEmitter for Ball3<Scalar> {
+//     #[inline]
+//     fn area(&self) -> Scalar {
+//         4.0 * consts::PI * self.radius() * self.radius()
+//     }
+
+//     #[inline]
+//     fn sample(&self, u1: Scalar, u2: Scalar) -> (Point, Normal) {
+//         let p = na::zero() + self.radius() * uniform_sample_sphere(u1, u2);
+//         // TODO: need some way to transform a point into world space
+//         // from the object space
+//         // let n = 
+//         (na::zero(), na::zero())
+//     }
+// }
+
+// impl ShapeEmitter for Cuboid3<Scalar> {
+//     #[inline]
+//     fn area(&self) -> Scalar {
+//         let he = self.half_extents();
+//         2.0 * he.x * he.y * he.z
+//     }
+
+//     #[inline]
+//     fn sample(&self, u1: Scalar, u2: Scalar) -> (Point, Normal) {
+//         (na::zero(), na::zero())
+//     }
+// }
 
 // #[test]
 // fn test_DirectionalLight_sample() {
@@ -130,4 +247,20 @@ pub trait AreaLight : Light {
 //     let n = Vec3::x();
 //     let value = l.sample(&p, &n);
 //     assert_approx_eq!(value, na::one());
+// }
+
+// #[test]
+// fn test_area_ball() {
+//     let ball = Ball3::new(1.0);
+//     let area = ball.area();
+//     let expected = 4.0 * consts::PI;
+//     assert_approx_eq!(area, expected);
+// }
+
+// #[test]
+// fn test_area_cuboid() {
+//     let cuboid = Cuboid3::new(1.0, 1.0, 1.0);
+//     let area = cuboid.area();
+//     let expected = 1.0;
+//     assert_approx_eq!(area, expected);
 // }

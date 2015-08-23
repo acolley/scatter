@@ -1,12 +1,30 @@
 
+use std::f64;
+use std::f64::consts;
+
 use na;
 use na::{Norm, Pnt3, Vec3};
+
+pub use na::{dot};
 
 // TODO: allow scalar to be adjusted with a cfg build flag
 pub type Scalar = f64;
 pub type Point = Pnt3<Scalar>;
 pub type Vector = Vec3<Scalar>;
 pub type Normal = Vector;
+
+pub fn uniform_sample_sphere(u1: Scalar, u2: Scalar) -> Vector {
+    let z = 1.0 - 2.0 * u1;
+    let r = f64::max(0.0, 1.0 - z*z).sqrt();
+    let phi = 2.0 * consts::PI * 2.0 * u2;
+    let x = r * phi.cos();
+    let y = r * phi.sin();
+    Vector::new(x, y, z)
+}
+
+pub fn uniform_sphere_pdf() -> Scalar {
+    1.0 / (consts::PI * 4.0)
+}
 
 pub fn coordinate_system(v1: &Vector) -> (Vector, Vector) {
     let v2 = {
