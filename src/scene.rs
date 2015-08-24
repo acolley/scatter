@@ -4,7 +4,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use na;
-use na::{Iso3, Pnt2, Pnt3, Vec3};
+use na::{Iso3, Pnt2, Pnt3};
 use ncollide::bounding_volume::{AABB3, HasAABB};
 use ncollide::partitioning::{BVT};
 use ncollide::ray::{RayCast, RayInterferencesCollector};
@@ -15,7 +15,7 @@ use material::{Material};
 use math::{Normal, Point, Scalar, Vector};
 use ray::{Ray};
 
-/// Structure representing an object in the 
+/// Structure representing an object in the
 /// Scene that can be shaded.
 pub struct SceneNode {
     pub uuid: Uuid,

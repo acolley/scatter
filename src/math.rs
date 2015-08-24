@@ -16,7 +16,7 @@ pub type Normal = Vector;
 pub fn uniform_sample_sphere(u1: Scalar, u2: Scalar) -> Vector {
     let z = 1.0 - 2.0 * u1;
     let r = f64::max(0.0, 1.0 - z*z).sqrt();
-    let phi = 2.0 * consts::PI * 2.0 * u2;
+    let phi = 2.0 * consts::PI * u2;
     let x = r * phi.cos();
     let y = r * phi.sin();
     Vector::new(x, y, z)

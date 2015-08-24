@@ -1,6 +1,6 @@
 
 use na;
-use na::{Pnt2, Vec3};
+use na::{Pnt2};
 
 use bxdf::{BSDF, Lambertian, FresnelConductor, FresnelDielectric, SpecularReflection, SpecularTransmission};
 use math::{Normal};
@@ -41,7 +41,7 @@ impl Material for GlassMaterial {
         // refractive index for glass is 1.5
         bsdf.add_bxdf(Box::new(
             SpecularTransmission::new(
-                Spectrum::new(1.0, 1.0, 1.0), 
+                Spectrum::new(1.0, 1.0, 1.0),
                 1.0,
                 1.5)));
         bsdf.add_bxdf(Box::new(
@@ -59,7 +59,7 @@ impl Material for MirrorMaterial {
         let mut bsdf = BSDF::new(*normal);
         bsdf.add_bxdf(Box::new(
             SpecularReflection::new(
-                Spectrum::new(1.0, 1.0, 1.0), 
+                Spectrum::new(1.0, 1.0, 1.0),
                 Box::new(FresnelConductor::new(na::zero(),
                                                Spectrum::new(1.0, 1.0, 1.0))))));
         bsdf

@@ -17,12 +17,9 @@ use std::path::{Path};
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
-use std::u32;
 
-use self::na::{Iso3, Pnt2, Pnt3, Vec3, Translate};
-use ncollide::ray::{Ray3};
+use self::na::{Iso3, Pnt2, Pnt3, Vec3};
 use ncollide::shape::{Ball, Cuboid, TriMesh3};
-use ncollide::bounding_volume::{BoundingSphere};
 
 mod bxdf;
 mod camera;
@@ -39,8 +36,8 @@ mod texture;
 
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
-use integrator::{Integrator, PathTraced, Whitted};
-use light::{DirectionalLight, PointLight};
+use integrator::{Integrator, Whitted};
+use light::{PointLight};
 use material::{DiffuseMaterial, GlassMaterial, MirrorMaterial};
 use math::{Point, Scalar, Vector};
 use rand::{StdRng};
@@ -62,23 +59,23 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
 
         for i in 0..mesh.indices.len() / 3 {
             indices.push(
-                Pnt3::new(mesh.indices[i * 3] as usize, 
-                          mesh.indices[i * 3 + 1] as usize, 
+                Pnt3::new(mesh.indices[i * 3] as usize,
+                          mesh.indices[i * 3 + 1] as usize,
                           mesh.indices[i * 3 + 2] as usize)
             );
         }
 
         for v in 0..mesh.positions.len() / 3 {
             vertices.push(
-                Pnt3::new(mesh.positions[v * 3] as Scalar, 
-                          mesh.positions[v * 3 + 1] as Scalar, 
+                Pnt3::new(mesh.positions[v * 3] as Scalar,
+                          mesh.positions[v * 3 + 1] as Scalar,
                           mesh.positions[v * 3 + 2] as Scalar)
             );
         }
 
         for t in 0..mesh.texcoords.len() / 2 {
             uvs.push(
-                Pnt2::new(mesh.texcoords[t * 2] as Scalar, 
+                Pnt2::new(mesh.texcoords[t * 2] as Scalar,
                           mesh.texcoords[t * 2 + 1] as Scalar)
             );
         }
@@ -116,8 +113,8 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
     meshes
 }
 
-fn render<I>(width: u32, 
-             height: u32, 
+fn render<I>(width: u32,
+             height: u32,
              nthreads: u32,
              samples_per_pixel: u32,
              camera: &Arc<PerspectiveCamera>,
@@ -206,22 +203,22 @@ fn setup_scene() -> Scene {
     let mut nodes = Vec::new();
 
     let transform = Iso3::new(Vector::new(1.0, -1.5, 0.8), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform, 
+    nodes.push(Arc::new(SceneNode::new(transform,
                                        material_reflect.clone(),
                                        Box::new(Ball::new(0.6)))));
 
     let transform = Iso3::new(Vector::new(-1.0, -1.5, 0.2), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform, 
+    nodes.push(Arc::new(SceneNode::new(transform,
                                        material_glass.clone(),
                                        Box::new(Ball::new(0.6)))));
 
     let transform = Iso3::new(Vector::new(0.0, 0.0, -2.2), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform, 
+    nodes.push(Arc::new(SceneNode::new(transform,
                                        material_yellow.clone(),
                                        Box::new(rabbit.clone()))));
 
     // let transform = Iso3::new(Vector::new(-1.0, -1.25, 0.2), na::zero());
-    // nodes.push(Arc::new(SceneNode::new(transform, 
+    // nodes.push(Arc::new(SceneNode::new(transform,
     //                                    material_glass.clone(),
     //                                    Box::new(Cuboid::new(Vector::new(0.5, 0.5, 0.5))))));
 

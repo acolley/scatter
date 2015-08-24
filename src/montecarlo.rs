@@ -1,7 +1,6 @@
 
 use std::f64::consts;
 
-use na;
 use na::{Vec3};
 
 #[inline]

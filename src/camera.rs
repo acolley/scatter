@@ -1,6 +1,6 @@
 extern crate nalgebra as na;
 
-use self::na::{Iso3, OrthoMat3, PerspMat3, Pnt3, Pnt4, Translation, Vec3};
+use self::na::{Iso3, OrthoMat3, PerspMat3, Pnt4, Translation};
 
 use math::{Point, Scalar, Vector};
 use ray::{Ray};
@@ -19,10 +19,10 @@ pub struct PerspectiveCamera {
 
 impl PerspectiveCamera {
     pub fn new(transform: Iso3<Scalar>,
-               width: u32, 
-               height: u32, 
-               fov: Scalar, 
-               znear: Scalar, 
+               width: u32,
+               height: u32,
+               fov: Scalar,
+               znear: Scalar,
                zfar: Scalar) -> PerspectiveCamera {
         PerspectiveCamera {
             width : width,
@@ -51,10 +51,9 @@ impl Camera for PerspectiveCamera {
     }
 }
 
-pub struct OrthographicCamera {
-    width: u32,
-    height: u32,
-    iso: Iso3<Scalar>,
-    proj: OrthoMat3<Scalar>
-}
-
+// pub struct OrthographicCamera {
+//     width: u32,
+//     height: u32,
+//     iso: Iso3<Scalar>,
+//     proj: OrthoMat3<Scalar>
+// }

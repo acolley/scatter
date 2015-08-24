@@ -47,7 +47,6 @@ where R: Rng {
     if nlights == 0 {
         return na::zero();
     }
-    let bsdf = &isect.bsdf;
     let light = rng.choose(&scene.lights).expect("Light could not be chosen");
     let l = sample_light(light, wo, isect, scene, BSDF_ALL - BSDF_SPECULAR) * nlights as f64;
     l
@@ -56,10 +55,9 @@ where R: Rng {
 /// Integrate over all lights computing
 /// direct lighting at a surface point
 /// and sampling the BSDF at the intersection.
-pub fn sample_all_lights(wo: &Vector, 
+pub fn sample_all_lights(wo: &Vector,
                          isect: &Intersection,
                          scene: &Scene) -> Spectrum {
-    let bsdf = &isect.bsdf;
     let mut l = na::zero();
     for light in &scene.lights {
         l = l + sample_light(light, wo, isect, scene, BSDF_ALL - BSDF_SPECULAR);
@@ -70,7 +68,7 @@ pub fn sample_all_lights(wo: &Vector,
 /// Find the specular reflection component at a surface point.
 pub fn specular_reflect<R, T>(
     ray: &Ray,
-    isect: &Intersection, 
+    isect: &Intersection,
     scene: &Scene,
     renderer: &T,
     rng: &mut R) -> Spectrum
@@ -95,7 +93,7 @@ where R: Rng,
 /// Find the specular transmission component at a surface point.
 pub fn specular_transmit<R, T>(
     ray: &Ray,
-    isect: &Intersection, 
+    isect: &Intersection,
     scene: &Scene,
     renderer: &T,
     rng: &mut R) -> Spectrum
@@ -119,10 +117,10 @@ where R: Rng,
 
 pub trait Integrator {
     fn integrate<R, T>(
-        &self, 
-        ray: &Ray, 
-        isect: &Intersection, 
-        scene: &Scene, 
+        &self,
+        ray: &Ray,
+        isect: &Intersection,
+        scene: &Scene,
         renderer: &T,
         rng: &mut R) -> Spectrum
     where R: Rng,
@@ -143,10 +141,10 @@ impl Whitted {
 
 impl Integrator for Whitted {
     fn integrate<R, T>(
-        &self, 
-        ray: &Ray, 
-        isect: &Intersection, 
-        scene: &Scene, 
+        &self,
+        ray: &Ray,
+        isect: &Intersection,
+        scene: &Scene,
         renderer: &T,
         rng: &mut R) -> Spectrum
     where R: Rng,
@@ -193,7 +191,7 @@ where R: Rng,
     let wo = -(*ray.dir());
     // TODO: add emitted light at path vertex
     // if bounce == 0 || specular_bounce {
-    //     l = l + throughput * 
+    //     l = l + throughput *
     // }
     if bounce < SAMPLE_DEPTH {
         // TODO: this should perform proper sampling

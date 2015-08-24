@@ -2,7 +2,7 @@
 use std::sync::Arc;
 
 use na;
-use na::{Pnt2, Vec3};
+use na::{Pnt2};
 
 use image::{GenericImage, RgbImage};
 use math::{Scalar};
@@ -55,8 +55,8 @@ impl Texture for ImageTexture {
                 let x = (uv.x * width as f64).round() as u32 % width;
                 let y = (uv.y * height as f64).round() as u32 % height;
                 let p = self.data.get_pixel(x, y);
-                Spectrum::new(p[0] as Scalar / 255.0, 
-                              p[1] as Scalar / 255.0, 
+                Spectrum::new(p[0] as Scalar / 255.0,
+                              p[1] as Scalar / 255.0,
                               p[2] as Scalar / 255.0)
             },
             None => na::zero()

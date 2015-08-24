@@ -5,7 +5,7 @@ use na;
 
 use integrator::{Integrator};
 use ray::{Ray};
-use scene::{Intersection, Scene};
+use scene::{Scene};
 use spectrum::{Spectrum};
 
 pub trait Renderer {
