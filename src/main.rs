@@ -3,7 +3,7 @@ extern crate bitflags;
 extern crate clap;
 extern crate image;
 extern crate rand;
-extern crate rustc_serialize;
+extern crate serde_json;
 extern crate uuid;
 #[macro_use(assert_approx_eq)]
 extern crate nalgebra as na;
@@ -28,6 +28,7 @@ mod light;
 mod material;
 mod math;
 mod montecarlo;
+mod parse;
 mod ray;
 mod renderer;
 mod scene;
@@ -37,14 +38,14 @@ mod texture;
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
 use integrator::{Integrator, Whitted};
-use light::{PointLight};
+use light::{Light, PointLight};
 use material::{DiffuseMaterial, GlassMaterial, MirrorMaterial};
 use math::{Point, Scalar, Vector};
 use rand::{StdRng};
 use renderer::{Renderer, StandardRenderer};
 use scene::{Scene, SceneNode};
 use spectrum::Spectrum;
-use texture::{ConstantTexture, ImageTexture};
+use texture::{ConstantTexture, ImageTexture, Texture};
 
 fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
     let obj = tobj::load_obj(filename);
@@ -113,14 +114,14 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
     meshes
 }
 
-fn render<I>(width: u32,
-             height: u32,
-             nthreads: u32,
-             samples_per_pixel: u32,
-             camera: &Arc<PerspectiveCamera>,
-             scene: &Arc<Scene>,
-             renderer: &Arc<StandardRenderer<I>>) -> Vec<u8>
-where I: 'static + Integrator + Sync + Send {
+fn render(
+    width: u32,
+    height: u32,
+    nthreads: u32,
+    samples_per_pixel: u32,
+    camera: &Arc<PerspectiveCamera>,
+    scene: &Arc<Scene>,
+    renderer: &Arc<StandardRenderer>) -> Vec<u8> {
     let (tx, rx) = mpsc::channel();
     // partition along the x dimension
     let xchunk_size = width / nthreads;
@@ -192,66 +193,66 @@ fn setup_scene() -> Scene {
     let yellow = Vector::new(1.0, 1.0, 0.5);
     let red = Vector::new(1.0, 0.0, 0.0);
     let blue = Vector::new(0.0, 0.0, 1.0);
-    let material_yellow = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(yellow))));
+    let material_yellow = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(yellow)) as Box<Texture + Sync + Send>));
     let material_glass = Arc::new(GlassMaterial);
     let material_reflect = Arc::new(MirrorMaterial);
-    let material_white = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(white))));
-    let material_red = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(red))));
-    let material_blue = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(blue))));
-    let material_checker = Arc::new(DiffuseMaterial::new(Box::new(ImageTexture::new(teximg.clone()))));
+    let material_white = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(white)) as Box<Texture + Sync + Send>));
+    let material_red = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(red)) as Box<Texture + Sync + Send>));
+    let material_blue = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(blue)) as Box<Texture + Sync + Send>));
+    let material_checker = Arc::new(DiffuseMaterial::new(Box::new(ImageTexture::new(teximg.clone())) as Box<Texture + Sync + Send>));
 
     let mut nodes = Vec::new();
 
-    let transform = Iso3::new(Vector::new(1.0, -1.5, 0.8), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_reflect.clone(),
-                                       Box::new(Ball::new(0.6)))));
+    // let transform = Iso3::new(Vector::new(1.0, -1.5, 0.8), na::zero());
+    // nodes.push(Arc::new(SceneNode::new(transform,
+    //                                    material_reflect.clone(),
+    //                                    Box::new(Ball::new(0.6)))));
 
-    let transform = Iso3::new(Vector::new(-1.0, -1.5, 0.2), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_glass.clone(),
-                                       Box::new(Ball::new(0.6)))));
-
-    let transform = Iso3::new(Vector::new(0.0, 0.0, -2.2), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_yellow.clone(),
-                                       Box::new(rabbit.clone()))));
-
-    // let transform = Iso3::new(Vector::new(-1.0, -1.25, 0.2), na::zero());
+    // let transform = Iso3::new(Vector::new(-1.0, -1.5, 0.2), na::zero());
     // nodes.push(Arc::new(SceneNode::new(transform,
     //                                    material_glass.clone(),
-    //                                    Box::new(Cuboid::new(Vector::new(0.5, 0.5, 0.5))))));
+    //                                    Box::new(Ball::new(0.6)))));
 
-    // floor
-    let transform = Iso3::new(Vector::new(0.0, -3.0, 0.0), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_checker.clone(),
-                                       Box::new(Cuboid::new(Vector::new(3.0, 0.01, 3.0))))));
-    // ceiling
-    let transform = Iso3::new(Vector::new(0.0, 2.9, 0.0), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_white.clone(),
-                                       Box::new(Cuboid::new(Vector::new(3.0, 0.01, 3.0))))));
-    // front
-    let transform = Iso3::new(Vector::new(0.0, 0.0, 3.0), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_white.clone(),
-                                       Box::new(Cuboid::new(Vector::new(3.0, 3.0, 0.01))))));
-    // back
-    let transform = Iso3::new(Vector::new(0.0, 0.0, -3.0), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_white.clone(),
-                                       Box::new(Cuboid::new(Vector::new(3.0, 3.0, 0.01))))));
-    // left
-    let transform = Iso3::new(Vector::new(3.0, 0.0, 0.0), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_red.clone(),
-                                       Box::new(Cuboid::new(Vector::new(0.01, 3.0, 3.0))))));
-    // right
-    let transform = Iso3::new(Vector::new(-3.0, 0.0, 0.0), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_blue.clone(),
-                                       Box::new(Cuboid::new(Vector::new(0.01, 3.0, 3.0))))));
+    // // let transform = Iso3::new(Vector::new(0.0, 0.0, -2.2), na::zero());
+    // // nodes.push(Arc::new(SceneNode::new(transform,
+    // //                                    material_yellow.clone(),
+    // //                                    Box::new(rabbit.clone()))));
+
+    // // let transform = Iso3::new(Vector::new(-1.0, -1.25, 0.2), na::zero());
+    // // nodes.push(Arc::new(SceneNode::new(transform,
+    // //                                    material_glass.clone(),
+    // //                                    Box::new(Cuboid::new(Vector::new(0.5, 0.5, 0.5))))));
+
+    // // floor
+    // let transform = Iso3::new(Vector::new(0.0, -3.0, 0.0), na::zero());
+    // nodes.push(Arc::new(SceneNode::new(transform,
+    //                                    material_checker.clone(),
+    //                                    Box::new(Cuboid::new(Vector::new(3.0, 0.01, 3.0))))));
+    // // ceiling
+    // let transform = Iso3::new(Vector::new(0.0, 2.9, 0.0), na::zero());
+    // nodes.push(Arc::new(SceneNode::new(transform,
+    //                                    material_white.clone(),
+    //                                    Box::new(Cuboid::new(Vector::new(3.0, 0.01, 3.0))))));
+    // // front
+    // let transform = Iso3::new(Vector::new(0.0, 0.0, 3.0), na::zero());
+    // nodes.push(Arc::new(SceneNode::new(transform,
+    //                                    material_white.clone(),
+    //                                    Box::new(Cuboid::new(Vector::new(3.0, 3.0, 0.01))))));
+    // // back
+    // let transform = Iso3::new(Vector::new(0.0, 0.0, -3.0), na::zero());
+    // nodes.push(Arc::new(SceneNode::new(transform,
+    //                                    material_white.clone(),
+    //                                    Box::new(Cuboid::new(Vector::new(3.0, 3.0, 0.01))))));
+    // // left
+    // let transform = Iso3::new(Vector::new(3.0, 0.0, 0.0), na::zero());
+    // nodes.push(Arc::new(SceneNode::new(transform,
+    //                                    material_red.clone(),
+    //                                    Box::new(Cuboid::new(Vector::new(0.01, 3.0, 3.0))))));
+    // // right
+    // let transform = Iso3::new(Vector::new(-3.0, 0.0, 0.0), na::zero());
+    // nodes.push(Arc::new(SceneNode::new(transform,
+    //                                    material_blue.clone(),
+    //                                    Box::new(Cuboid::new(Vector::new(0.01, 3.0, 3.0))))));
     let mut scene = Scene::new(nodes);
 
 
@@ -264,7 +265,7 @@ fn setup_scene() -> Scene {
     // let pnt_light_blue = Box::new(PointLight::new(1.0, Vector::new(0.0, 0.0, 1.0), Point::new(0.0, 15.0, 10.0), 500.0));
     // scene.add_light(pnt_light_blue);
     let pnt_light_white = Box::new(PointLight::new(1.0, Vector::new(1.0, 1.0, 1.0), Point::new(0.0, 2.0, 0.0), 6.0));
-    scene.add_light(pnt_light_white);
+    scene.add_light(pnt_light_white as Box<Light + Sync + Send>);
     // let pnt_light_white = Box::new(PointLight::new(1.0, Vector::new(1.0, 1.0, 1.0), Point::new(10.0, 25.0, 10.0), 500.0));
     // scene.add_light(pnt_light_white);
 
@@ -313,9 +314,9 @@ fn main() {
     let camera = Arc::new(camera);
 
     let scene = Arc::new(setup_scene());
-    let integrator = Whitted::new(depth);
-    // let integrator = PathTraced::new(depth);
-    let renderer = Arc::new(StandardRenderer::new(integrator));
+    let integrator = Box::new(Whitted::new(depth));
+    // let integrator = Box::new(PathTraced::new(depth));
+    let renderer = Arc::new(StandardRenderer::new(integrator as Box<Integrator + Send + Sync>));
 
     let colours = render(width, height, nthreads, samples, &camera, &scene, &renderer);
 

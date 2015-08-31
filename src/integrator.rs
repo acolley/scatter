@@ -4,7 +4,7 @@ use na;
 use bxdf::{BxDFType, BSDF_ALL, BSDF_REFLECTION, BSDF_SPECULAR, BSDF_TRANSMISSION};
 use light::{Light};
 use math::{Scalar, Vector};
-use rand::{Rng};
+use rand::{Rng, StdRng};
 use ray::{Ray};
 use renderer::{Renderer};
 use scene::{Intersection, Scene};
@@ -37,12 +37,11 @@ fn sample_light(light: &Box<Light + Send + Sync>,
     }
 }
 
-pub fn sample_one_light<R>(
+pub fn sample_one_light(
     wo: &Vector,
     isect: &Intersection,
     scene: &Scene,
-    rng: &mut R) -> Spectrum
-where R: Rng {
+    rng: &mut StdRng) -> Spectrum {
     let nlights = scene.lights.len();
     if nlights == 0 {
         return na::zero();
@@ -66,14 +65,12 @@ pub fn sample_all_lights(wo: &Vector,
 }
 
 /// Find the specular reflection component at a surface point.
-pub fn specular_reflect<R, T>(
+pub fn specular_reflect(
     ray: &Ray,
     isect: &Intersection,
     scene: &Scene,
-    renderer: &T,
-    rng: &mut R) -> Spectrum
-where R: Rng,
-      T: Renderer {
+    renderer: &Renderer,
+    rng: &mut StdRng) -> Spectrum {
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
@@ -91,14 +88,12 @@ where R: Rng,
 }
 
 /// Find the specular transmission component at a surface point.
-pub fn specular_transmit<R, T>(
+pub fn specular_transmit(
     ray: &Ray,
     isect: &Intersection,
     scene: &Scene,
-    renderer: &T,
-    rng: &mut R) -> Spectrum
-where R: Rng,
-      T: Renderer {
+    renderer: &Renderer,
+    rng: &mut StdRng) -> Spectrum {
     let wo = -(*ray.dir());
     let n = &isect.normal;
     let bsdf = &isect.bsdf;
@@ -116,15 +111,13 @@ where R: Rng,
 }
 
 pub trait Integrator {
-    fn integrate<R, T>(
+    fn integrate(
         &self,
         ray: &Ray,
         isect: &Intersection,
         scene: &Scene,
-        renderer: &T,
-        rng: &mut R) -> Spectrum
-    where R: Rng,
-          T: Renderer;
+        renderer: &Renderer,
+        rng: &mut StdRng) -> Spectrum;
 }
 
 pub struct Whitted {
@@ -140,15 +133,13 @@ impl Whitted {
 }
 
 impl Integrator for Whitted {
-    fn integrate<R, T>(
+    fn integrate(
         &self,
         ray: &Ray,
         isect: &Intersection,
         scene: &Scene,
-        renderer: &T,
-        rng: &mut R) -> Spectrum
-    where R: Rng,
-          T: Renderer {
+        renderer: &Renderer,
+        rng: &mut StdRng) -> Spectrum {
         let wo = -(*ray.dir());
         let mut l = sample_all_lights(&wo, &isect, scene);
 
@@ -174,18 +165,16 @@ impl PathTraced {
     pub fn depth(&self) -> i32 { self.depth }
 }
 
-fn path_bounce<R, T>(
+fn path_bounce(
     tracer: &PathTraced,
     ray: &Ray,
     isect: &Intersection,
     scene: &Scene,
-    renderer: &T,
-    rng: &mut R,
+    renderer: &Renderer,
+    rng: &mut StdRng,
     bounce: i32,
     throughput: Spectrum,
-    specular_bounce: bool) -> Spectrum
-where R: Rng,
-      T: Renderer {
+    specular_bounce: bool) -> Spectrum {
     let mut l = na::zero();
     let bsdf = &isect.bsdf;
     let wo = -(*ray.dir());
@@ -255,15 +244,13 @@ where R: Rng,
 }
 
 impl Integrator for PathTraced {
-    fn integrate<R, T>(
+    fn integrate(
         &self,
         ray: &Ray,
         isect: &Intersection,
         scene: &Scene,
-        renderer: &T,
-        rng: &mut R) -> Spectrum
-    where R: Rng,
-          T: Renderer {
+        renderer: &Renderer,
+        rng: &mut StdRng) -> Spectrum {
         path_bounce(
             self,
             ray,

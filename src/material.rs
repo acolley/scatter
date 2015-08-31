@@ -16,10 +16,9 @@ pub struct DiffuseMaterial {
 }
 
 impl DiffuseMaterial {
-    pub fn new<T: 'static + Texture + Sync + Send>(
-        texture: Box<T>) -> DiffuseMaterial {
+    pub fn new(texture: Box<Texture + Sync + Send>) -> DiffuseMaterial {
         DiffuseMaterial {
-            texture : texture as Box<Texture + Sync + Send>
+            texture : texture
         }
     }
 }
