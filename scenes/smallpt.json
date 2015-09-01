@@ -1,0 +1,134 @@
+{
+	"cameras": {
+		"main": {
+			"type": "Perspective",
+			"transform": {
+				"position": [0.0, 0.0, -2.5]
+			},
+			"width": 512,
+			"height": 512,
+			"fov": 90,
+			"near": 0.01,
+			"far": 1000
+		}
+	},
+	"views": {
+		"main": {
+			"camera": "main",
+			"samples": 8,
+			"integrator": "Path",
+			"depth": 6,
+			"renderer": "Standard"
+		}
+	},
+	"objects": {
+		"ball_mirror": {
+			"shape": "Ball",
+			"radius": 0.6,
+			"transform": {
+				"position": [1.0, -1.5, 0.8]
+			},
+			"material": "mirror"
+		},
+		"ball_glass": {
+			"shape": "Ball",
+			"radius": 0.6,
+			"transform": {
+				"position": [-1.0, -1.5, 0.2]
+			},
+			"material": "glass"
+		},
+		"floor": {
+			"shape": "Cuboid",
+			"extents": [3.0, 0.01, 3.0],
+			"transform": {
+				"position": [0.0, -3.0, 0.0]
+			},
+			"material": "checker"
+		},
+		"ceiling": {
+			"shape": "Cuboid",
+			"extents": [3.0, 0.01, 3.0],
+			"transform": {
+				"position": [0.0, 2.9, 0.0]
+			},
+			"material": "white"
+		},
+		"front": {
+			"shape": "Cuboid",
+			"extents": [3.0, 3.0, 0.01],
+			"transform": {
+				"position": [0.0, 0.0, 3.0]
+			},
+			"material": "white"
+		},
+		"back": {
+			"shape": "Cuboid",
+			"extents": [3.0, 3.0, 0.01],
+			"transform": {
+				"position": [0.0, 0.0, -3.0]
+			},
+			"material": "white"
+		},
+		"left": {
+			"shape": "Cuboid",
+			"extents": [0.01, 3.0, 3.0],
+			"transform": {
+				"position": [3.0, 0.0, 0.0]
+			},
+			"material": "red"
+		},
+		"right": {
+			"shape": "Cuboid",
+			"extents": [0.01, 3.0, 3.0],
+			"transform": {
+				"position": [-3.0, 0.0, 0.0]
+			},
+			"material": "blue"
+		}
+	},
+	"materials": {
+		"mirror": {
+			"type": "Mirror"
+		},
+		"glass": {
+			"type": "Glass"
+		},
+		"blue": {
+			"type": "Diffuse",
+			"texture": {
+				"type": "Constant",
+				"colour": [0.0, 0.0, 1.0]
+			}
+		},
+		"red": {
+			"type": "Diffuse",
+			"texture": {
+				"type": "Constant",
+				"colour": [1.0, 0.0, 0.0]
+			}
+		},
+		"white": {
+			"type": "Diffuse",
+			"texture": {
+				"type": "Constant",
+				"colour": [1.0, 1.0, 1.0]
+			}
+		},
+		"checker": {
+			"type": "Diffuse",
+			"texture": {
+				"type": "Image",
+				"filename": "resources/checker_huge.gif"
+			}
+		}
+	},
+	"lights": {
+		"main": {
+			"type": "Point",
+			"position": [0.0, 2.0, 0.0],
+			"colour": [1.0, 1.0, 1.0],
+			"radius": 6.0
+		}
+	}
+}

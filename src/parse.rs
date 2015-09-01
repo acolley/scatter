@@ -250,7 +250,7 @@ fn parse_object(data: &Value, materials: &HashMap<String, Arc<Material + Sync + 
                     .as_string().expect("Shape should be a JSON string.");
     let (shape, aabb) = match shape {
         "Cuboid" => parse_cuboid(data, &transform),
-        "Shape" => parse_sphere(data, &transform),
+        "Ball" => parse_ball(data, &transform),
         _ => panic!("Unrecognised shape: {}", shape)
     };
 
@@ -266,7 +266,7 @@ fn parse_cuboid(data: &BTreeMap<String, Value>, transform: &Iso3<Scalar>) -> (Bo
     (Box::new(cuboid) as Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>, aabb)
 }
 
-fn parse_sphere(data: &BTreeMap<String, Value>, transform: &Iso3<Scalar>) -> (Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>, AABB3<Scalar>) {
+fn parse_ball(data: &BTreeMap<String, Value>, transform: &Iso3<Scalar>) -> (Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>, AABB3<Scalar>) {
     let radius = data.get("radius").expect("Sphere shape should have a 'radius' key.");
     let radius = radius.as_f64().expect("Radius should be a number.");
 
