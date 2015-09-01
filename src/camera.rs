@@ -8,6 +8,8 @@ use ray::{Ray};
 pub trait Camera {
     fn ray_from(&self, x: Scalar, y: Scalar) -> Ray;
     fn look_at_z(&mut self, at: &Point, up: &Vector);
+    fn width(&self) -> u32;
+    fn height(&self) -> u32;
 }
 
 pub struct PerspectiveCamera {
@@ -49,6 +51,12 @@ impl Camera for PerspectiveCamera {
         let mut transform = self.transform;
         transform.look_at_z(&self.transform.translation().to_pnt(), at, up);
     }
+
+    #[inline]
+    fn width(&self) -> u32 { self.width }
+
+    #[inline]
+    fn height(&self) -> u32 { self.height }
 }
 
 // pub struct OrthographicCamera {

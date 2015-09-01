@@ -42,6 +42,7 @@ use integrator::{Integrator, Whitted};
 use light::{Light, PointLight};
 use material::{DiffuseMaterial, GlassMaterial, MirrorMaterial};
 use math::{Point, Scalar, Vector};
+use parse::{View};
 use rand::{StdRng};
 use renderer::{Renderer, StandardRenderer};
 use scene::{Scene, SceneNode};
@@ -120,9 +121,9 @@ fn render(
     height: u32,
     nthreads: u32,
     samples_per_pixel: u32,
-    camera: &Arc<PerspectiveCamera>,
+    camera: &Arc<Camera + Sync + Send>,
     scene: &Arc<Scene>,
-    renderer: &Arc<StandardRenderer>) -> Vec<u8> {
+    renderer: &Arc<Renderer + Sync + Send>) -> Vec<u8> {
     let (tx, rx) = mpsc::channel();
     // partition along the x dimension
     let xchunk_size = width / nthreads;
@@ -185,13 +186,12 @@ fn render(
     colours
 }
 
-fn setup_scene(filename: &str) -> Scene {
+fn setup_scene(filename: &str) -> (Scene, HashMap<String, View>) {
     let mut f = File::open(filename).ok().expect("Could not open scene file.");
     let mut json_str = String::new();
     f.read_to_string(&mut json_str);
 
-    let (scene, views) = parse::parse_scene(&json_str);
-    scene
+    parse::parse_scene(&json_str)
 }
 
 fn main() {
@@ -239,15 +239,20 @@ fn main() {
     camera.look_at_z(&Point::new(0.0, 0.0, 0.0), &Vector::y());
     let camera = Arc::new(camera);
 
-    let scene = Arc::new(setup_scene(&scene_filename));
-    let integrator = Box::new(Whitted::new(depth));
-    // let integrator = Box::new(PathTraced::new(depth));
-    let renderer = Arc::new(StandardRenderer::new(integrator as Box<Integrator + Send + Sync>));
+    let (scene, views) = setup_scene(&scene_filename);
+    let scene = Arc::new(scene);
 
-    let colours = render(width, height, nthreads, samples, &camera, &scene, &renderer);
-
-    let filename = matches.value_of("OUTPUT").unwrap_or("scatter.png");
-    let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");
-    let img = image::ImageBuffer::from_raw(width, height, colours).expect("Could not create image buffer");
-    let _ = image::ImageRgb8(img).save(out, image::PNG);
+    for (name, view) in views.iter() {
+        let colours = render(view.camera.width(), 
+                             view.camera.height(),
+                             nthreads,
+                             view.samples,
+                             &view.camera,
+                             &scene,
+                             &view.renderer);
+        let filename = matches.value_of("OUTPUT").unwrap_or(name);
+        let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");
+        let img = image::ImageBuffer::from_raw(width, height, colours).expect("Could not create image buffer");
+        let _ = image::ImageRgb8(img).save(out, image::PNG);
+    }
 }

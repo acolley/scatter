@@ -23,17 +23,17 @@ use spectrum::{Spectrum};
 use texture::{ConstantTexture, ImageTexture, Texture};
 
 pub struct View {
-    camera: Arc<Camera>,
-    samples: u32,
-    depth: i32,
-    renderer: Box<Renderer>
+    pub camera: Arc<Camera + Sync + Send>,
+    pub samples: u32,
+    pub depth: i32,
+    pub renderer: Arc<Renderer + Sync + Send>
 }
 
 impl View {
-    pub fn new(camera: Arc<Camera>,
+    pub fn new(camera: Arc<Camera + Sync + Send>,
                samples: u32,
                depth: i32,
-               renderer: Box<Renderer>) -> View {
+               renderer: Arc<Renderer + Sync + Send>) -> View {
         View {
             camera : camera,
             samples : samples,
@@ -70,7 +70,7 @@ pub fn parse_scene(json: &str) -> (Scene, HashMap<String, View>) {
     (scene, views)
 }
 
-fn parse_cameras(data: &Value) -> HashMap<String, Arc<Camera>> {
+fn parse_cameras(data: &Value) -> HashMap<String, Arc<Camera + Sync + Send>> {
     let data = data.as_object().expect("'cameras' should be a JSON Object.");
 
     let mut cameras = HashMap::new();
@@ -81,7 +81,7 @@ fn parse_cameras(data: &Value) -> HashMap<String, Arc<Camera>> {
     cameras
 }
 
-fn parse_camera(data: &Value) -> Arc<Camera> {
+fn parse_camera(data: &Value) -> Arc<Camera + Sync + Send> {
     let data = data.as_object().expect("Camera should be a JSON Object.");
 
     let transform = data.get("transform").expect("Camera requires 'transform' key.");
@@ -109,12 +109,12 @@ fn parse_camera(data: &Value) -> Arc<Camera> {
                                                          height as u32, 
                                                          fov.to_radians(), 
                                                          near, 
-                                                         far)),
+                                                         far)) as Arc<Camera + Sync + Send>,
         _ => panic!("Unrecognised camera type: {}", camera_type)
     }
 }
 
-fn parse_views(data: &Value, cameras: &HashMap<String, Arc<Camera>>) -> HashMap<String, View> {
+fn parse_views(data: &Value, cameras: &HashMap<String, Arc<Camera + Sync + Send>>) -> HashMap<String, View> {
     let data = data.as_object().expect("'views' should be a JSON Object.");
 
     let mut views = HashMap::new();
@@ -125,7 +125,7 @@ fn parse_views(data: &Value, cameras: &HashMap<String, Arc<Camera>>) -> HashMap<
     views
 }
 
-fn parse_view(data: &Value, cameras: &HashMap<String, Arc<Camera>>) -> View {
+fn parse_view(data: &Value, cameras: &HashMap<String, Arc<Camera + Sync + Send>>) -> View {
     let data = data.as_object().expect("View should be a JSON Object.");
 
     let camera = data.get("camera")
@@ -154,7 +154,7 @@ fn parse_view(data: &Value, cameras: &HashMap<String, Arc<Camera>>) -> View {
                        .expect("View requires a 'renderer' key.")
                        .as_string().expect("Renderer should be a JSON string.");
     let renderer = match renderer {
-        "Standard" => Box::new(StandardRenderer::new(integrator)) as Box<Renderer>,
+        "Standard" => Arc::new(StandardRenderer::new(integrator)) as Arc<Renderer + Sync + Send>,
         _ => panic!("Unrecognised renderer: {}", renderer)
     };
 
