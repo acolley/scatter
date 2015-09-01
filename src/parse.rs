@@ -1,6 +1,9 @@
 
 use std::collections::{BTreeMap, HashMap};
+use std::error;
+use std::fmt;
 use std::path::{Path};
+use std::result;
 use std::sync::Arc;
 
 use image;
@@ -21,6 +24,8 @@ use renderer::{Renderer, StandardRenderer};
 use scene::{Scene, SceneNode};
 use spectrum::{Spectrum};
 use texture::{ConstantTexture, ImageTexture, Texture};
+
+pub type Shape = Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>;
 
 pub struct View {
     pub camera: Arc<Camera + Sync + Send>,
@@ -43,325 +48,427 @@ impl View {
     }
 }
 
+#[derive(Debug)]
+pub enum Error {
+    ExpectedArray(&'static str),
+    ExpectedU64(&'static str),
+    ExpectedF64(&'static str),
+    ExpectedI64(&'static str),
+    ExpectedObject(&'static str),
+    ExpectedString(&'static str),
+    Json(::serde_json::error::Error),
+    MalformedPoint(&'static str),
+    MalformedSpectrum(&'static str),
+    MalformedVector(&'static str),
+    MissingKey(&'static str),
+    MissingReference((&'static str, &'static str)),
+    Texture(::image::ImageError)
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::ExpectedArray(err) => err,
+            Error::ExpectedU64(err) => err,
+            Error::ExpectedF64(err) => err,
+            Error::ExpectedI64(err) => err,
+            Error::ExpectedObject(err) => err,
+            Error::ExpectedString(err) => err,
+            Error::Json(ref err) => err.description(),
+            Error::MalformedPoint(err) => err,
+            Error::MalformedSpectrum(err) => err,
+            Error::MalformedVector(err) => err,
+            Error::MissingKey(err) => err,
+            Error::MissingReference((typ, name)) => name,
+            Error::Texture(ref err) => err.description()
+        }
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        match *self {
+            Error::ExpectedArray(_) => None,
+            Error::ExpectedU64(_) => None,
+            Error::ExpectedF64(_) => None,
+            Error::ExpectedI64(_) => None,
+            Error::ExpectedObject(_) => None,
+            Error::ExpectedString(_) => None,
+            Error::Json(ref err) => Some(err),
+            Error::MalformedPoint(_) => None,
+            Error::MalformedSpectrum(_) => None,
+            Error::MalformedVector(_) => None,
+            Error::MissingKey(_) => None,
+            Error::MissingReference(_) => None,
+            Error::Texture(ref err) => Some(err)
+        }
+    }
+}
+
+impl From<::serde_json::error::Error> for Error {
+    fn from(err: ::serde_json::error::Error) -> Error {
+        Error::Json(err)
+    }
+}
+
+impl From<::image::ImageError> for Error {
+    fn from(err: ::image::ImageError) -> Error {
+        Error::Texture(err)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::ExpectedArray(err) => write!(f, "Expected JSON array: {}", err),
+            Error::ExpectedU64(err) => write!(f, "Expected JSON u64: {}", err),
+            Error::ExpectedF64(err) => write!(f, "Expected JSON f64: {}", err),
+            Error::ExpectedI64(err) => write!(f, "Expected JSON i64: {}", err),
+            Error::ExpectedObject(err) => write!(f, "Expected JSON object: {}", err),
+            Error::ExpectedString(err) => write!(f, "Expected JSON string: {}", err),
+            Error::Json(ref err) => write!(f, "JSON parse error: {}", err),
+            Error::MalformedPoint(err) => write!(f, "Malformed point: {}", err),
+            Error::MalformedSpectrum(err) => write!(f, "Malformed spectrum: {}", err),
+            Error::MalformedVector(err) => write!(f, "Malformed vector: {}", err),
+            Error::MissingKey(err) => write!(f, "Missing key: {}", err),
+            Error::MissingReference((typ, name)) => write!(f, "Referenced {} with name '{}' not found.", typ, name),
+            Error::Texture(ref err) => write!(f, "Texture error: {}", err)
+        }
+    }
+}
+
+pub type Result<T> = result::Result<T, Error>;
+
 // TODO: use proper error handling here, i.e. Result
 
 /// Parse the scene description from a JSON formatted string.
-pub fn parse_scene(json: &str) -> (Scene, HashMap<String, View>) {
-	let data: Value = serde_json::from_str(json).ok().expect("String not formatted as JSON");
+pub fn parse_scene(json: &str) -> Result<(Scene, HashMap<String, View>)> {
+	let data: Value = try!(serde_json::from_str(json));
 
-    let root = data.as_object().expect("Root should be a JSON Object");
+    let cameras = try!(data.find("cameras").ok_or(Error::MissingKey("cameras")));
+    let views = try!(data.find("views").ok_or(Error::MissingKey("views")));
+    let objects = try!(data.find("objects").ok_or(Error::MissingKey("objects")));
+    let materials = try!(data.find("materials").ok_or(Error::MissingKey("materials")));
+    let lights = try!(data.find("lights").ok_or(Error::MissingKey("lights")));
 
-    let cameras = root.get("cameras").expect("Expected key 'cameras' not found.");
-    let views = root.get("views").expect("Expected key 'views' not found.");
-    let objects = root.get("objects").expect("Expected key 'objects' not found.");
-    let materials = root.get("materials").expect("Expected key 'materials' not found.");
-    let lights = root.get("lights").expect("Expected key 'lights' not found.");
-
-    let cameras = parse_cameras(cameras);
-    let views = parse_views(views, &cameras);
-    let materials = parse_materials(materials);
-    let objects = parse_objects(objects, &materials);
-    let lights = parse_lights(lights);
+    let cameras = try!(parse_cameras(cameras));
+    let views = try!(parse_views(views, &cameras));
+    let materials = try!(parse_materials(materials));
+    let objects = try!(parse_objects(objects, &materials));
+    let lights = try!(parse_lights(lights));
 
     let mut scene = Scene::new(objects);
     for light in lights {
         scene.add_light(light);
     }
-    (scene, views)
+    Ok((scene, views))
 }
 
-fn parse_cameras(data: &Value) -> HashMap<String, Arc<Camera + Sync + Send>> {
-    let data = data.as_object().expect("'cameras' should be a JSON Object.");
+fn parse_cameras(data: &Value) -> Result<HashMap<String, Arc<Camera + Sync + Send>>> {
+    let data = try!(data.as_object().ok_or(Error::ExpectedObject("cameras")));
 
     let mut cameras = HashMap::new();
     for (name, value) in data.iter() {
-        let camera = parse_camera(value);
+        let camera = try!(parse_camera(value));
         cameras.insert(name.clone(), camera);
     }
-    cameras
+    Ok(cameras)
 }
 
-fn parse_camera(data: &Value) -> Arc<Camera + Sync + Send> {
-    let data = data.as_object().expect("Camera should be a JSON Object.");
+fn parse_camera(data: &Value) -> Result<Arc<Camera + Sync + Send>> {
+    let transform = try!(data.find("transform").ok_or(Error::MissingKey("transform")));
+    let transform = try!(parse_transform(transform));
 
-    let transform = data.get("transform").expect("Camera requires 'transform' key.");
-    let transform = parse_transform(transform);
+    let width = try!(data.find("width").ok_or(Error::MissingKey("width")));
+    let width = try!(try_get_u64(width, "width"));
 
-    let width = data.get("width").expect("Camera requires 'width' key.")
-                                 .as_u64().expect("Width should be a number.");
-    let height = data.get("height").expect("Camera requires 'height' key.")
-                                   .as_u64().expect("Height should be a number.");
+    let height = try!(data.find("height").ok_or(Error::MissingKey("height")));
+    let height = try!(try_get_u64(height, "height"));
 
-    let fov = data.get("fov").expect("Camera requires 'fov' key.")
-                             .as_f64().expect("fov should be a number.");
+    let fov = try!(data.find("fov").ok_or(Error::MissingKey("fov")));
+    let fov = try!(try_get_f64(fov, "fov"));
 
-    let near = data.get("near").expect("Camera requires 'near' key.")
-                               .as_f64().expect("near should be a number.");
-    let far = data.get("far").expect("Camera requires 'far' key.")
-                             .as_f64().expect("far should be a number.");
+    let near = try!(data.find("near").ok_or(Error::MissingKey("near")));
+    let near = try!(try_get_f64(near, "near"));
 
-    let camera_type = data.get("type")
-                          .expect("Camera requires 'type' key.")
-                          .as_string().expect("Camera type should be a JSON string.");
+    let far = try!(data.find("far").ok_or(Error::MissingKey("far")));
+    let far = try!(try_get_f64(far, "far"));
+
+    let camera_type = try!(data.find("type").ok_or(Error::MissingKey("type")));
+    let camera_type = try!(try_get_string(camera_type, "type"));
+
     match camera_type {
-        "Perspective" => Arc::new(PerspectiveCamera::new(transform, 
+        "Perspective" => Ok(Arc::new(PerspectiveCamera::new(transform, 
                                                          width as u32, 
                                                          height as u32, 
                                                          fov.to_radians(), 
                                                          near, 
-                                                         far)) as Arc<Camera + Sync + Send>,
+                                                         far)) as Arc<Camera + Sync + Send>),
         _ => panic!("Unrecognised camera type: {}", camera_type)
     }
 }
 
-fn parse_views(data: &Value, cameras: &HashMap<String, Arc<Camera + Sync + Send>>) -> HashMap<String, View> {
-    let data = data.as_object().expect("'views' should be a JSON Object.");
+fn parse_views(data: &Value, cameras: &HashMap<String, Arc<Camera + Sync + Send>>) -> Result<HashMap<String, View>> {
+    let data = try!(data.as_object().ok_or(Error::ExpectedObject("views")));
 
     let mut views = HashMap::new();
     for (name, value) in data.iter() {
-        let view = parse_view(value, cameras);
+        let view = try!(parse_view(value, cameras));
         views.insert(name.clone(), view);
     }
-    views
+    Ok(views)
 }
 
-fn parse_view(data: &Value, cameras: &HashMap<String, Arc<Camera + Sync + Send>>) -> View {
-    let data = data.as_object().expect("View should be a JSON Object.");
+fn parse_view(data: &Value, cameras: &HashMap<String, Arc<Camera + Sync + Send>>) -> Result<View> {
+    let camera = try!(data.find("camera").ok_or(Error::MissingKey("camera")));
+    let camera = try!(camera.as_string().ok_or(Error::ExpectedString("camera")));
+    // let camera = try!(cameras.get(camera).ok_or(Error::MissingReference(("Camera", camera))));
+    let camera = cameras.get(camera).unwrap();
 
-    let camera = data.get("camera")
-                     .expect("View requires a 'camera' key.")
-                     .as_string().expect("Camera should be a JSON string.");
-    let camera = cameras.get(camera)
-                        .expect(&format!("View's camera not found: {}", camera));
+    let samples = try!(data.find("samples").ok_or(Error::MissingKey("samples")));
+    let samples = try!(try_get_i64(samples, "samples"));
 
-    let samples = data.get("samples")
-                      .expect("View requires a 'samples' key.")
-                      .as_i64().expect("Samples should be a number.");
-    let depth = data.get("depth")
-                    .expect("View requires a 'depth' key.")
-                    .as_i64().expect("Samples should be a number.");
+    let depth = try!(data.find("depth").ok_or(Error::MissingKey("depth")));
+    let depth = try!(try_get_i64(depth, "depth"));
 
-    let integrator = data.get("integrator")
-                         .expect("View requires an 'integrator' key.")
-                         .as_string().expect("Integrator should be a JSON string.");
+    let integrator = try!(data.find("integrator").ok_or(Error::MissingKey("integrator")));
+    let integrator = try!(try_get_string(integrator, "integrator"));
+
     let integrator = match integrator {
         "Path" => Box::new(PathTraced::new(depth as i32)) as Box<Integrator + Sync + Send>,
         "Whitted" => Box::new(Whitted::new(depth as i32)) as Box<Integrator + Sync + Send>,
         _ => panic!("Unrecognised integrator: {}", integrator)
     };
 
-    let renderer = data.get("renderer")
-                       .expect("View requires a 'renderer' key.")
-                       .as_string().expect("Renderer should be a JSON string.");
+    let renderer = try!(data.find("renderer").ok_or(Error::MissingKey("renderer")));
+    let renderer = try!(renderer.as_string().ok_or(Error::ExpectedString("renderer")));
     let renderer = match renderer {
         "Standard" => Arc::new(StandardRenderer::new(integrator)) as Arc<Renderer + Sync + Send>,
         _ => panic!("Unrecognised renderer: {}", renderer)
     };
 
-    View::new(camera.clone(), samples as u32, depth as i32, renderer)
+    Ok(View::new(camera.clone(), samples as u32, depth as i32, renderer))
 }
 
-fn parse_materials(data: &Value) -> HashMap<String, Arc<Material + Sync + Send>> {
-    let data = data.as_object().expect("'materials' should be an Object");
+fn parse_materials(data: &Value) -> Result<HashMap<String, Arc<Material + Sync + Send>>> {
+    let data = try!(data.as_object().ok_or(Error::ExpectedObject("materials")));
     let mut materials = HashMap::new();
     for (name, value) in data.iter() {
-        let material = parse_material(value);
+        let material = try!(parse_material(value));
         materials.insert(name.clone(), material);
     }
-    materials
+    Ok(materials)
 }
 
-fn parse_material(data: &Value) -> Arc<Material + Sync + Send> {
-    let data = data.as_object().expect("Material should be a JSON object.");
-    let material_type = data.get("type")
-                            .expect("No material 'type' defined.")
-                            .as_string().expect("Material type should be a JSON string.");
+fn parse_material(data: &Value) -> Result<Arc<Material + Sync + Send>> {
+    let data = try!(data.as_object().ok_or(Error::ExpectedObject("material")));
+
+    let material_type = try!(data.get("type").ok_or(Error::MissingKey("type")));
+    let material_type = try!(material_type.as_string().ok_or(Error::ExpectedString("type")));
     match material_type {
-        "Glass" => Arc::new(GlassMaterial) as Arc<Material + Sync + Send>,
-        "Mirror" => Arc::new(MirrorMaterial) as Arc<Material + Sync + Send>,
-        "Diffuse" => Arc::new(parse_diffuse_material(data)) as Arc<Material + Sync + Send>,
+        "Glass" => Ok(Arc::new(GlassMaterial) as Arc<Material + Sync + Send>),
+        "Mirror" => Ok(Arc::new(MirrorMaterial) as Arc<Material + Sync + Send>),
+        "Diffuse" => Ok(Arc::new(try!(parse_diffuse_material(data))) as Arc<Material + Sync + Send>),
         _ => panic!("Unrecognised material type: {}", material_type)
     }
 }
 
-fn parse_diffuse_material(data: &BTreeMap<String, Value>) -> DiffuseMaterial {
-    let texture = data.get("texture").expect("Diffuse material requires 'texture' key.");
-    let texture = parse_texture(&texture);
-    DiffuseMaterial::new(texture)
+fn parse_diffuse_material(data: &BTreeMap<String, Value>) -> Result<DiffuseMaterial> {
+    let texture = try!(data.get("texture").ok_or(Error::MissingKey("texture")));
+    let texture = try!(parse_texture(&texture));
+    Ok(DiffuseMaterial::new(texture))
 }
 
-fn parse_texture(data: &Value) -> Box<Texture + Sync + Send> {
-    let data = data.as_object().expect("Texture should be a JSON object.");
-    let texture_type = data.get("type")
-                           .expect("Texture should define a 'type' key.")
-                           .as_string().expect("Texture type should be a JSON string.");
+fn parse_texture(data: &Value) -> Result<Box<Texture + Sync + Send>> {
+    let data = try!(data.as_object().ok_or(Error::ExpectedObject("texture")));
+
+    let texture_type = try!(data.get("type").ok_or(Error::MissingKey("type")));
+    let texture_type = try!(texture_type.as_string().ok_or(Error::ExpectedString("type")));
     match texture_type {
-        "Constant" => Box::new(parse_constant_texture(data)) as Box<Texture + Sync + Send>,
-        "Image" => Box::new(parse_image_texture(data)) as Box<Texture + Sync + Send>,
+        "Constant" => Ok(Box::new(try!(parse_constant_texture(data))) as Box<Texture + Sync + Send>),
+        "Image" => Ok(Box::new(try!(parse_image_texture(data))) as Box<Texture + Sync + Send>),
         _ => panic!("Unrecognised texture type: {}", texture_type)
     }
 }
 
-fn parse_constant_texture(data: &BTreeMap<String, Value>) -> ConstantTexture {
-    let colour = data.get("colour").expect("Constant texture should define a 'colour' key.");
-    let colour = parse_spectrum(colour);
-    ConstantTexture::new(colour)
+fn parse_constant_texture(data: &BTreeMap<String, Value>) -> Result<ConstantTexture> {
+    let colour = try!(data.get("colour").ok_or(Error::MissingKey("colour")));
+    let colour = try!(parse_spectrum(colour));
+    Ok(ConstantTexture::new(colour))
 }
 
-fn parse_image_texture(data: &BTreeMap<String, Value>) -> ImageTexture {
-    let filename = data.get("filename").expect("Image texture should define a 'filename' key.");
-    let filename = filename.as_string().expect("Filename should be a JSON string.");
+fn parse_image_texture(data: &BTreeMap<String, Value>) -> Result<ImageTexture> {
+    let filename = try!(data.get("filename").ok_or(Error::MissingKey("filename")));
+    let filename = try!(filename.as_string().ok_or(Error::ExpectedString("filename")));
     // TODO: use a centralised location for loading/storing assets
-    let image = Arc::new(image::open(&Path::new(filename))
-        .ok().expect(&format!("Could not load image from file: {}", filename)).to_rgb());
-    ImageTexture::new(image.clone())
+    let image = try!(image::open(&Path::new(filename)));
+    let image = Arc::new(image.to_rgb());
+    Ok(ImageTexture::new(image.clone()))
 }
 
-// fn parse_objects(data: &Value, materials: &HashMap<String, Arc<Material>>) -> HashMap<String, Arc<SceneNode>> {
-fn parse_objects(data: &Value, materials: &HashMap<String, Arc<Material + Sync + Send>>) -> Vec<Arc<SceneNode>> {
-    let data = data.as_object().expect("Objects should be JSON Object.");
+fn parse_objects(data: &Value, materials: &HashMap<String, Arc<Material + Sync + Send>>) -> Result<Vec<Arc<SceneNode>>> {
+    let data = try!(data.as_object().ok_or(Error::ExpectedObject("objects")));
 
     // let mut objects = HashMap::new();
     let mut objects = Vec::new();
     for (name, value) in data.iter() {
-        let object = Arc::new(parse_object(value, materials));
+        let object = Arc::new(try!(parse_object(value, materials)));
         // objects.insert(*name, object);
         objects.push(object);
     }
-    objects
+    Ok(objects)
 }
 
-fn parse_object(data: &Value, materials: &HashMap<String, Arc<Material + Sync + Send>>) -> SceneNode {
-    let data = data.as_object().expect("Object should be a JSON Object.");
+fn parse_object(data: &Value, materials: &HashMap<String, Arc<Material + Sync + Send>>) -> Result<SceneNode> {
+    let data = try!(data.as_object().ok_or(Error::ExpectedObject("object")));
 
-    let material = data.get("material")
-                       .expect("Object should have a 'material' key.")
-                       .as_string().expect("Material should be a JSON string.");
+    let material = try!(data.get("material").ok_or(Error::MissingKey("material")));
+    let material = try!(material.as_string().ok_or(Error::ExpectedString("material")));
     let material = materials.get(material)
-                            .expect(&format!("No Material found with name: {}", material));
+        .expect(&format!("No Material found with name: {}", material));
 
-    let transform = data.get("transform")
-                        .expect("Object should have a 'transform' key.");
-    let transform = parse_transform(transform);
+    let transform = try!(data.get("transform").ok_or(Error::MissingKey("transform")));
+    let transform = try!(parse_transform(transform));
 
-
-    let shape = data.get("shape")
-                    .expect("Object should have a 'shape' key.")
-                    .as_string().expect("Shape should be a JSON string.");
+    let shape = try!(data.get("shape").ok_or(Error::MissingKey("shape")));
+    let shape = try!(shape.as_string().ok_or(Error::ExpectedString("shape")));
     let (shape, aabb) = match shape {
-        "Cuboid" => parse_cuboid(data, &transform),
-        "Ball" => parse_ball(data, &transform),
+        "Cuboid" => try!(parse_cuboid(data, &transform)),
+        "Ball" => try!(parse_ball(data, &transform)),
         _ => panic!("Unrecognised shape: {}", shape)
     };
 
-    SceneNode::new(transform, material.clone(), shape, aabb)
+    Ok(SceneNode::new(transform, material.clone(), shape, aabb))
 }
 
-fn parse_cuboid(data: &BTreeMap<String, Value>, transform: &Iso3<Scalar>) -> (Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>, AABB3<Scalar>) {
-    let extents = data.get("extents").expect("Cuboid shape should have an 'extents' key.");
-    let extents = parse_vector(extents);
+fn parse_cuboid(data: &BTreeMap<String, Value>, transform: &Iso3<Scalar>) -> Result<(Shape, AABB3<Scalar>)> {
+    let extents = try!(data.get("extents").ok_or(Error::MissingKey("extents")));
+    let extents = try!(parse_vector(extents));
 
     let cuboid = Cuboid::new(extents);
     let aabb = cuboid.aabb(transform);
-    (Box::new(cuboid) as Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>, aabb)
+    Ok((Box::new(cuboid) as Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>, aabb))
 }
 
-fn parse_ball(data: &BTreeMap<String, Value>, transform: &Iso3<Scalar>) -> (Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>, AABB3<Scalar>) {
-    let radius = data.get("radius").expect("Sphere shape should have a 'radius' key.");
-    let radius = radius.as_f64().expect("Radius should be a number.");
+fn parse_ball(data: &BTreeMap<String, Value>, transform: &Iso3<Scalar>) -> Result<(Shape, AABB3<Scalar>)> {
+    let radius = try!(data.get("radius").ok_or(Error::MissingKey("radius")));
+    let radius = try!(try_get_f64(radius, "radius"));
 
     let ball = Ball::new(radius);
     let aabb = ball.aabb(transform);
-    (Box::new(ball) as Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>, aabb)
+    Ok((Box::new(ball) as Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>, aabb))
 }
 
-fn parse_lights(data: &Value) -> Vec<Box<Light + Sync + Send>> {
-    let data = data.as_object().expect("Lights should be a JSON Object.");
+fn parse_lights(data: &Value) -> Result<Vec<Box<Light + Sync + Send>>> {
+    let data = try!(data.as_object().ok_or(Error::ExpectedObject("lights")));
 
     let mut lights = Vec::new();
     for (_, value) in data.iter() {
-        let light = parse_light(value);
+        let light = try!(parse_light(value));
         lights.push(light);
     }
-    lights
+    Ok(lights)
 }
 
-fn parse_light(data: &Value) -> Box<Light + Sync + Send> {
-    let data = data.as_object().expect("Light should be a JSON Object.");
+fn parse_light(data: &Value) -> Result<Box<Light + Sync + Send>> {
+    let data = try!(data.as_object().ok_or(Error::ExpectedObject("light")));
 
-    let light_type = data.get("type").expect("Light should define a 'type' key.");
-    let light_type = light_type.as_string().expect("Light type should be a JSON string.");
+    let light_type = try!(data.get("type").ok_or(Error::MissingKey("type")));
+    let light_type = try!(light_type.as_string().ok_or(Error::ExpectedString("type")));
 
-    let colour = data.get("colour").expect("Light should define a 'colour' key.");
-    let colour = parse_spectrum(colour);
+    let colour = try!(data.get("colour").ok_or(Error::MissingKey("colour")));
+    let colour = try!(parse_spectrum(colour));
 
     match light_type {
-        "Point" => Box::new(parse_point_light(data, colour)) as Box<Light + Sync + Send>,
+        "Point" => Ok(Box::new(try!(parse_point_light(data, colour))) as Box<Light + Sync + Send>),
         _ => panic!("Unrecognised light type: {}", light_type)
     }
 }
 
-fn parse_point_light(data: &BTreeMap<String, Value>, colour: Spectrum) -> PointLight {
-    let position = data.get("position")
-                       .expect("Point light should define a 'position' key.");
-    let position = parse_point(position);
+fn parse_point_light(data: &BTreeMap<String, Value>, colour: Spectrum) -> Result<PointLight> {
+    let position = try!(data.get("position").ok_or(Error::MissingKey("position")));
+    let position = try!(parse_point(position));
 
-    let radius = data.get("radius")
-                     .expect("Point light should define a 'radius' key.")
-                     .as_f64().expect("Point light radius should be a number.");
+    let radius = try!(data.get("radius").ok_or(Error::MissingKey("radius")));
+    let radius = try!(try_get_f64(radius, "radius"));
 
-    PointLight::new(1.0, colour, position, radius)
+    Ok(PointLight::new(1.0, colour, position, radius))
 }
 
-fn parse_vector(data: &Value) -> Vector {
-    let data = data.as_array().expect("Vector should be a JSON array");
+fn parse_vector(data: &Value) -> Result<Vector> {
+    let data = try!(data.as_array().ok_or(Error::ExpectedArray("vector")));
     if data.len() != 3 {
-        panic!("Vector should be an array of three elements");
+        return Err(Error::MalformedVector("Array of three elements expected."));
     }
 
-    let x = data[0].as_f64().expect("Vector x component should be a number.");
-    let y = data[1].as_f64().expect("Vector y component should be a number.");
-    let z = data[2].as_f64().expect("Vector z component should be a number.");
+    let x = try!(try_get_f64(&data[0], "x"));
+    let y = try!(try_get_f64(&data[1], "y"));
+    let z = try!(try_get_f64(&data[2], "z"));
 
-    Vector::new(x, y, z)
+    Ok(Vector::new(x, y, z))
 }
 
-fn parse_point(data: &Value) -> Point {
-    let data = data.as_array().expect("Point should be a JSON array");
+fn parse_point(data: &Value) -> Result<Point> {
+    let data = try!(data.as_array().ok_or(Error::ExpectedArray("point")));
     if data.len() != 3 {
-        panic!("Point should be an array of three elements");
+        return Err(Error::MalformedPoint("Array of three elements expected."));
     }
 
-    let x = data[0].as_f64().expect("Point x component should be a number.");
-    let y = data[1].as_f64().expect("Point y component should be a number.");
-    let z = data[2].as_f64().expect("Point z component should be a number.");
+    let x = try!(try_get_f64(&data[0], "x"));
+    let y = try!(try_get_f64(&data[1], "y"));
+    let z = try!(try_get_f64(&data[2], "z"));
 
-    Point::new(x, y, z)
+    Ok(Point::new(x, y, z))
 }
 
-fn parse_transform(data: &Value) -> Iso3<Scalar> {
-    let data = data.as_object().expect("Transform should be a JSON object.");
+fn parse_transform(data: &Value) -> Result<Iso3<Scalar>> {
+    let data = try!(data.as_object().ok_or(Error::ExpectedObject("transform")));
 
-    let position = data.get("position").expect("Transform should have a key 'position'.");
-    let position = parse_vector(position);
+    let position = try!(data.get("position").ok_or(Error::MissingKey("position")));
+    let position = try!(parse_vector(position));
 
     let rotation = match data.get("rotation") {
-        Some(_) => parse_vector(data.get("rotation").unwrap()),
+        Some(rot) => try!(parse_vector(rot)),
         None => na::zero()
     };
 
-    Iso3::new(position, rotation)
+    Ok(Iso3::new(position, rotation))
 }
 
-fn parse_spectrum(data: &Value) -> Spectrum {
-    let data = data.as_array().expect("Spectrum should be a JSON array.");
+fn parse_spectrum(data: &Value) -> Result<Spectrum> {
+    let data = try!(data.as_array().ok_or(Error::ExpectedArray("spectrum")));
     if data.len() != 3 {
-        panic!("Spectrum should be an array of three elements");
+        return Err(Error::MalformedSpectrum("Array of three elements expected"));
     }
 
-    let r = data[0].as_f64().expect("Spectrum r component should be a number.");
-    let g = data[1].as_f64().expect("Spectrum g component should be a number.");
-    let b = data[2].as_f64().expect("Spectrum b component should be a number.");
+    let r = try!(try_get_f64(&data[0], "r"));
+    let g = try!(try_get_f64(&data[1], "g"));
+    let b = try!(try_get_f64(&data[2], "b"));
 
-    Spectrum::new(r, g, b)
+    Ok(Spectrum::new(r, g, b))
+}
+
+fn try_get_string<'a>(value: &'a Value, key: &'static str) -> Result<&'a str> {
+    value.as_string().ok_or(Error::ExpectedString(key))
+}
+
+fn try_get_object<'a>(value: &'a Value, key: &'static str) -> Result<&'a BTreeMap<String, Value>> {
+    value.as_object().ok_or(Error::ExpectedObject(key))
+}
+
+fn try_get_u64(value: &Value, key: &'static str) -> Result<u64> {
+    match *value {
+        Value::U64(n) => Ok(n),
+        _ => Err(Error::ExpectedU64(key)) // TODO: change to ExpectedU64
+    }
+}
+
+fn try_get_f64(value: &Value, key: &'static str) -> Result<f64> {
+    value.as_f64().ok_or(Error::ExpectedF64(key))
+}
+
+fn try_get_i64(value: &Value, key: &'static str) -> Result<i64> {
+    match *value {
+        Value::I64(n) => Ok(n),
+        Value::U64(n) => Ok(n as i64),
+        _ => Err(Error::ExpectedI64(key)) // TODO: change to ExpectedF64
+    }
 }

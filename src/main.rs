@@ -186,12 +186,15 @@ fn render(
     colours
 }
 
-fn setup_scene(filename: &str) -> (Scene, HashMap<String, View>) {
+fn setup_scene<P: AsRef<Path>>(filename: P) -> (Scene, HashMap<String, View>) {
     let mut f = File::open(filename).ok().expect("Could not open scene file.");
     let mut json_str = String::new();
     f.read_to_string(&mut json_str);
 
-    parse::parse_scene(&json_str)
+    match parse::parse_scene(&json_str) {
+        Ok(res) => res,
+        Err(err) => panic!("{}", err)
+    }
 }
 
 fn main() {
@@ -234,10 +237,6 @@ fn main() {
     assert!(nthreads > 0);
 
     let scene_filename = matches.value_of("SCENE").unwrap();
-
-    let mut camera = PerspectiveCamera::new(Iso3::new(Vector::new(0.0, 0.0, -2.5), na::zero()), width, height, consts::FRAC_PI_2, 0.01, 1000.0);
-    camera.look_at_z(&Point::new(0.0, 0.0, 0.0), &Vector::y());
-    let camera = Arc::new(camera);
 
     let (scene, views) = setup_scene(&scene_filename);
     let scene = Arc::new(scene);
