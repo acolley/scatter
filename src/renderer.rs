@@ -1,5 +1,5 @@
 
-use rand::{Rng};
+use rand::{StdRng};
 
 use na;
 
@@ -9,25 +9,23 @@ use scene::{Scene};
 use spectrum::{Spectrum};
 
 pub trait Renderer {
-	fn render<R>(&self, ray: &Ray, scene: &Scene, rng: &mut R) -> Spectrum
-        where R: Rng;
+	fn render(&self, ray: &Ray, scene: &Scene, rng: &mut StdRng) -> Spectrum;
 }
 
-pub struct StandardRenderer<I: Integrator + Sync + Send> {
-    integrator: I
+pub struct StandardRenderer {
+    integrator: Box<Integrator + Sync + Send>
 }
 
-impl<I: Integrator + Sync + Send> StandardRenderer<I> {
-    pub fn new(integrator: I) -> StandardRenderer<I> {
+impl StandardRenderer {
+    pub fn new(integrator: Box<Integrator + Sync + Send>) -> StandardRenderer {
         StandardRenderer {
             integrator : integrator
         }
     }
 }
 
-impl<I: Integrator + Sync + Send> Renderer for StandardRenderer<I> {
-    fn render<R>(&self, ray: &Ray, scene: &Scene, rng: &mut R) -> Spectrum
-    where R: Rng {
+impl Renderer for StandardRenderer {
+    fn render(&self, ray: &Ray, scene: &Scene, rng: &mut StdRng) -> Spectrum {
         let isect_opt = scene.trace(ray);
 
         match isect_opt {

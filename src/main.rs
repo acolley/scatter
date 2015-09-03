@@ -3,7 +3,7 @@ extern crate bitflags;
 extern crate clap;
 extern crate image;
 extern crate rand;
-extern crate rustc_serialize;
+extern crate serde_json;
 extern crate uuid;
 #[macro_use(assert_approx_eq)]
 extern crate nalgebra as na;
@@ -11,6 +11,7 @@ extern crate ncollide;
 extern crate tobj;
 
 use std::collections::HashMap;
+use std::io::{Read};
 use std::f64::consts;
 use std::fs::{File};
 use std::path::{Path};
@@ -28,6 +29,7 @@ mod light;
 mod material;
 mod math;
 mod montecarlo;
+mod parse;
 mod ray;
 mod renderer;
 mod scene;
@@ -37,14 +39,15 @@ mod texture;
 use camera::{Camera, PerspectiveCamera};
 use clap::{Arg, App};
 use integrator::{Integrator, Whitted};
-use light::{PointLight};
+use light::{Light, PointLight};
 use material::{DiffuseMaterial, GlassMaterial, MirrorMaterial};
 use math::{Point, Scalar, Vector};
+use parse::{View};
 use rand::{StdRng};
 use renderer::{Renderer, StandardRenderer};
 use scene::{Scene, SceneNode};
 use spectrum::Spectrum;
-use texture::{ConstantTexture, ImageTexture};
+use texture::{ConstantTexture, ImageTexture, Texture};
 
 fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
     let obj = tobj::load_obj(filename);
@@ -113,14 +116,14 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
     meshes
 }
 
-fn render<I>(width: u32,
-             height: u32,
-             nthreads: u32,
-             samples_per_pixel: u32,
-             camera: &Arc<PerspectiveCamera>,
-             scene: &Arc<Scene>,
-             renderer: &Arc<StandardRenderer<I>>) -> Vec<u8>
-where I: 'static + Integrator + Sync + Send {
+fn render(
+    width: u32,
+    height: u32,
+    nthreads: u32,
+    samples_per_pixel: u32,
+    camera: &Arc<Camera + Sync + Send>,
+    scene: &Arc<Scene>,
+    renderer: &Arc<Renderer + Sync + Send>) -> Vec<u8> {
     let (tx, rx) = mpsc::channel();
     // partition along the x dimension
     let xchunk_size = width / nthreads;
@@ -183,97 +186,22 @@ where I: 'static + Integrator + Sync + Send {
     colours
 }
 
-fn setup_scene() -> Scene {
-    let teximg = Arc::new(image::open(&Path::new("resources/checker_huge.gif")).unwrap().to_rgb());
+fn setup_scene<P: AsRef<Path>>(filename: P) -> (Scene, HashMap<String, View>) {
+    let mut f = File::open(filename).ok().expect("Could not open scene file.");
+    let mut json_str = String::new();
+    f.read_to_string(&mut json_str);
 
-    let ref rabbit = load_obj(&Path::new("bunny.obj"))[0];
-
-    let white = Vector::new(1.0, 1.0, 1.0);
-    let yellow = Vector::new(1.0, 1.0, 0.5);
-    let red = Vector::new(1.0, 0.0, 0.0);
-    let blue = Vector::new(0.0, 0.0, 1.0);
-    let material_yellow = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(yellow))));
-    let material_glass = Arc::new(GlassMaterial);
-    let material_reflect = Arc::new(MirrorMaterial);
-    let material_white = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(white))));
-    let material_red = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(red))));
-    let material_blue = Arc::new(DiffuseMaterial::new(Box::new(ConstantTexture::new(blue))));
-    let material_checker = Arc::new(DiffuseMaterial::new(Box::new(ImageTexture::new(teximg.clone()))));
-
-    let mut nodes = Vec::new();
-
-    let transform = Iso3::new(Vector::new(1.0, -1.5, 0.8), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_reflect.clone(),
-                                       Box::new(Ball::new(0.6)))));
-
-    let transform = Iso3::new(Vector::new(-1.0, -1.5, 0.2), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_glass.clone(),
-                                       Box::new(Ball::new(0.6)))));
-
-    let transform = Iso3::new(Vector::new(0.0, 0.0, -2.2), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_yellow.clone(),
-                                       Box::new(rabbit.clone()))));
-
-    // let transform = Iso3::new(Vector::new(-1.0, -1.25, 0.2), na::zero());
-    // nodes.push(Arc::new(SceneNode::new(transform,
-    //                                    material_glass.clone(),
-    //                                    Box::new(Cuboid::new(Vector::new(0.5, 0.5, 0.5))))));
-
-    // floor
-    let transform = Iso3::new(Vector::new(0.0, -3.0, 0.0), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_checker.clone(),
-                                       Box::new(Cuboid::new(Vector::new(3.0, 0.01, 3.0))))));
-    // ceiling
-    let transform = Iso3::new(Vector::new(0.0, 2.9, 0.0), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_white.clone(),
-                                       Box::new(Cuboid::new(Vector::new(3.0, 0.01, 3.0))))));
-    // front
-    let transform = Iso3::new(Vector::new(0.0, 0.0, 3.0), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_white.clone(),
-                                       Box::new(Cuboid::new(Vector::new(3.0, 3.0, 0.01))))));
-    // back
-    let transform = Iso3::new(Vector::new(0.0, 0.0, -3.0), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_white.clone(),
-                                       Box::new(Cuboid::new(Vector::new(3.0, 3.0, 0.01))))));
-    // left
-    let transform = Iso3::new(Vector::new(3.0, 0.0, 0.0), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_red.clone(),
-                                       Box::new(Cuboid::new(Vector::new(0.01, 3.0, 3.0))))));
-    // right
-    let transform = Iso3::new(Vector::new(-3.0, 0.0, 0.0), na::zero());
-    nodes.push(Arc::new(SceneNode::new(transform,
-                                       material_blue.clone(),
-                                       Box::new(Cuboid::new(Vector::new(0.01, 3.0, 3.0))))));
-    let mut scene = Scene::new(nodes);
-
-
-    // let dir_light = Box::new(DirectionalLight::new(Spectrum::new(0.2, 0.2, 0.2), na::normalize(&Vector::new(0.0, -1.0, 1.0))));
-    // scene.add_light(dir_light);
-    // let pnt_light_red = Box::new(PointLight::new(1.0, Vector::new(1.0, 0.0, 0.0), Point::new(10.0, 0.0, 0.0), 500.0));
-    // scene.add_light(pnt_light_red);
-    // let pnt_light_green = Box::new(PointLight::new(1.0, Vector::new(0.0, 1.0, 0.0), Point::new(-20.0, 5.0, 20.0), 20.0));
-    // scene.add_light(pnt_light_green);
-    // let pnt_light_blue = Box::new(PointLight::new(1.0, Vector::new(0.0, 0.0, 1.0), Point::new(0.0, 15.0, 10.0), 500.0));
-    // scene.add_light(pnt_light_blue);
-    let pnt_light_white = Box::new(PointLight::new(1.0, Vector::new(1.0, 1.0, 1.0), Point::new(0.0, 2.0, 0.0), 6.0));
-    scene.add_light(pnt_light_white);
-    // let pnt_light_white = Box::new(PointLight::new(1.0, Vector::new(1.0, 1.0, 1.0), Point::new(10.0, 25.0, 10.0), 500.0));
-    // scene.add_light(pnt_light_white);
-
-    scene
+    match parse::parse_scene(&json_str) {
+        Ok(res) => res,
+        Err(err) => panic!("{}", err)
+    }
 }
 
 fn main() {
     let matches = App::new("pbrt")
                        .version("0.1")
+                       .arg(Arg::with_name("SCENE")
+                            .required(true))
                        .arg(Arg::with_name("OUTPUT")
                             .short("o")
                             .long("output")
@@ -308,19 +236,22 @@ fn main() {
     let nthreads = matches.value_of("THREADS").unwrap_or("1").parse::<u32>().ok().expect("Value for threads is not a valid unsigned integer");
     assert!(nthreads > 0);
 
-    let mut camera = PerspectiveCamera::new(Iso3::new(Vector::new(0.0, 0.0, -2.5), na::zero()), width, height, consts::FRAC_PI_2, 0.01, 1000.0);
-    camera.look_at_z(&Point::new(0.0, 0.0, 0.0), &Vector::y());
-    let camera = Arc::new(camera);
+    let scene_filename = matches.value_of("SCENE").unwrap();
 
-    let scene = Arc::new(setup_scene());
-    let integrator = Whitted::new(depth);
-    // let integrator = PathTraced::new(depth);
-    let renderer = Arc::new(StandardRenderer::new(integrator));
+    let (scene, views) = setup_scene(&scene_filename);
+    let scene = Arc::new(scene);
 
-    let colours = render(width, height, nthreads, samples, &camera, &scene, &renderer);
-
-    let filename = matches.value_of("OUTPUT").unwrap_or("scatter.png");
-    let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");
-    let img = image::ImageBuffer::from_raw(width, height, colours).expect("Could not create image buffer");
-    let _ = image::ImageRgb8(img).save(out, image::PNG);
+    for (name, view) in views.iter() {
+        let colours = render(view.camera.width(), 
+                             view.camera.height(),
+                             nthreads,
+                             view.samples,
+                             &view.camera,
+                             &scene,
+                             &view.renderer);
+        let filename = matches.value_of("OUTPUT").unwrap_or(name);
+        let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");
+        let img = image::ImageBuffer::from_raw(width, height, colours).expect("Could not create image buffer");
+        let _ = image::ImageRgb8(img).save(out, image::PNG);
+    }
 }

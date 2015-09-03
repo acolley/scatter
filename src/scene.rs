@@ -44,18 +44,20 @@ impl Intersection {
 }
 
 impl SceneNode {
-    pub fn new<M, N>(
+    pub fn new(
         transform: Iso3<Scalar>,
-        material: Arc<M>,
-        geom: Box<N>) -> SceneNode
-    where M: 'static + Sync + Send + Material,
-          N: 'static + Sync + Send + RayCast<Point, Iso3<Scalar>> + HasAABB<Point, Iso3<Scalar>> {
+        material: Arc<Material + Sync + Send>,
+        geom: Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>,
+        aabb: AABB3<Scalar>) -> SceneNode
+    // where M: 'static + Sync + Send + Material,
+    //       N: 'static + Sync + Send + RayCast<Point, Iso3<Scalar>> + HasAABB<Point, Iso3<Scalar>> {
+        {
         SceneNode {
             uuid : Uuid::new_v4(),
             transform : transform,
-            material : material as Arc<Material + Sync + Send>,
-            aabb : geom.aabb(&transform),
-            geom : geom as Box<RayCast<Pnt3<f64>, Iso3<f64>> + Sync + Send>
+            material : material,
+            aabb : aabb,
+            geom : geom
         }
     }
 }
@@ -108,8 +110,8 @@ impl Scene {
     }
 
     #[inline]
-    pub fn add_light<T: 'static + Light + Sync + Send>(&mut self, light: Box<T>) {
-        self.lights.push(light as Box<Light + Sync + Send>);
+    pub fn add_light(&mut self, light: Box<Light + Sync + Send>) {
+        self.lights.push(light);
     }
 
     pub fn intersects(&self, ray: &Ray) -> bool {
