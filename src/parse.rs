@@ -61,7 +61,7 @@ pub enum Error {
     MalformedSpectrum(&'static str),
     MalformedVector(&'static str),
     MissingKey(&'static str),
-    MissingReference((&'static str, &'static str)),
+    MissingReference { typ: &'static str, name: &'static str },
     Texture(::image::ImageError)
 }
 
@@ -79,7 +79,7 @@ impl error::Error for Error {
             Error::MalformedSpectrum(err) => err,
             Error::MalformedVector(err) => err,
             Error::MissingKey(err) => err,
-            Error::MissingReference((typ, name)) => name,
+            Error::MissingReference { name, .. } => name,
             Error::Texture(ref err) => err.description()
         }
     }
@@ -97,7 +97,7 @@ impl error::Error for Error {
             Error::MalformedSpectrum(_) => None,
             Error::MalformedVector(_) => None,
             Error::MissingKey(_) => None,
-            Error::MissingReference(_) => None,
+            Error::MissingReference {..} => None,
             Error::Texture(ref err) => Some(err)
         }
     }
@@ -129,7 +129,7 @@ impl fmt::Display for Error {
             Error::MalformedSpectrum(err) => write!(f, "Malformed spectrum: {}", err),
             Error::MalformedVector(err) => write!(f, "Malformed vector: {}", err),
             Error::MissingKey(err) => write!(f, "Missing key: {}", err),
-            Error::MissingReference((typ, name)) => write!(f, "Referenced {} with name '{}' not found.", typ, name),
+            Error::MissingReference { typ, name } => write!(f, "Referenced {} with name '{}' not found.", typ, name),
             Error::Texture(ref err) => write!(f, "Texture error: {}", err)
         }
     }
@@ -262,7 +262,7 @@ fn parse_material(data: &Value) -> Result<Arc<Material + Sync + Send>> {
     let data = try!(data.as_object().ok_or(Error::ExpectedObject("material")));
 
     let material_type = try!(data.get("type").ok_or(Error::MissingKey("type")));
-    let material_type = try!(material_type.as_string().ok_or(Error::ExpectedString("type")));
+    let material_type = try!(try_get_string(material_type, "type"));
     match material_type {
         "Glass" => Ok(Arc::new(GlassMaterial) as Arc<Material + Sync + Send>),
         "Mirror" => Ok(Arc::new(MirrorMaterial) as Arc<Material + Sync + Send>),
@@ -281,7 +281,7 @@ fn parse_texture(data: &Value) -> Result<Box<Texture + Sync + Send>> {
     let data = try!(data.as_object().ok_or(Error::ExpectedObject("texture")));
 
     let texture_type = try!(data.get("type").ok_or(Error::MissingKey("type")));
-    let texture_type = try!(texture_type.as_string().ok_or(Error::ExpectedString("type")));
+    let texture_type = try!(try_get_string(texture_type, "type"));
     match texture_type {
         "Constant" => Ok(Box::new(try!(parse_constant_texture(data))) as Box<Texture + Sync + Send>),
         "Image" => Ok(Box::new(try!(parse_image_texture(data))) as Box<Texture + Sync + Send>),
@@ -297,7 +297,7 @@ fn parse_constant_texture(data: &BTreeMap<String, Value>) -> Result<ConstantText
 
 fn parse_image_texture(data: &BTreeMap<String, Value>) -> Result<ImageTexture> {
     let filename = try!(data.get("filename").ok_or(Error::MissingKey("filename")));
-    let filename = try!(filename.as_string().ok_or(Error::ExpectedString("filename")));
+    let filename = try!(try_get_string(filename, "filename"));
     // TODO: use a centralised location for loading/storing assets
     let image = try!(image::open(&Path::new(filename)));
     let image = Arc::new(image.to_rgb());
@@ -321,7 +321,7 @@ fn parse_object(data: &Value, materials: &HashMap<String, Arc<Material + Sync + 
     let data = try!(data.as_object().ok_or(Error::ExpectedObject("object")));
 
     let material = try!(data.get("material").ok_or(Error::MissingKey("material")));
-    let material = try!(material.as_string().ok_or(Error::ExpectedString("material")));
+    let material = try!(try_get_string(material, "material"));
     let material = materials.get(material)
         .expect(&format!("No Material found with name: {}", material));
 
@@ -329,7 +329,7 @@ fn parse_object(data: &Value, materials: &HashMap<String, Arc<Material + Sync + 
     let transform = try!(parse_transform(transform));
 
     let shape = try!(data.get("shape").ok_or(Error::MissingKey("shape")));
-    let shape = try!(shape.as_string().ok_or(Error::ExpectedString("shape")));
+    let shape = try!(try_get_string(shape, "shape"));
     let (shape, aabb) = match shape {
         "Cuboid" => try!(parse_cuboid(data, &transform)),
         "Ball" => try!(parse_ball(data, &transform)),
@@ -372,7 +372,7 @@ fn parse_light(data: &Value) -> Result<Box<Light + Sync + Send>> {
     let data = try!(data.as_object().ok_or(Error::ExpectedObject("light")));
 
     let light_type = try!(data.get("type").ok_or(Error::MissingKey("type")));
-    let light_type = try!(light_type.as_string().ok_or(Error::ExpectedString("type")));
+    let light_type = try!(try_get_string(light_type, "type"));
 
     let colour = try!(data.get("colour").ok_or(Error::MissingKey("colour")));
     let colour = try!(parse_spectrum(colour));
@@ -457,7 +457,7 @@ fn try_get_object<'a>(value: &'a Value, key: &'static str) -> Result<&'a BTreeMa
 fn try_get_u64(value: &Value, key: &'static str) -> Result<u64> {
     match *value {
         Value::U64(n) => Ok(n),
-        _ => Err(Error::ExpectedU64(key)) // TODO: change to ExpectedU64
+        _ => Err(Error::ExpectedU64(key))
     }
 }
 
@@ -469,6 +469,6 @@ fn try_get_i64(value: &Value, key: &'static str) -> Result<i64> {
     match *value {
         Value::I64(n) => Ok(n),
         Value::U64(n) => Ok(n as i64),
-        _ => Err(Error::ExpectedI64(key)) // TODO: change to ExpectedF64
+        _ => Err(Error::ExpectedI64(key))
     }
 }
