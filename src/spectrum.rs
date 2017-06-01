@@ -1,5 +1,5 @@
 use na;
-use na::{Vector3};
+use na::Vector3;
 
 pub type Spectrum = Vector3<f64>;
 

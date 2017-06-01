@@ -1,16 +1,16 @@
 
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::error;
 use std::fmt;
-use std::path::{Path};
+use std::path::Path;
 use std::result;
 use std::sync::Arc;
 
 use image;
 use na;
-use na::{Isometry3};
-use ncollide::bounding_volume::{AABB3};
-use ncollide::query::{RayCast};
+use na::Isometry3;
+use ncollide::bounding_volume::AABB3;
+use ncollide::query::RayCast;
 use ncollide::shape::{Ball, Cuboid, Shape, TriMesh3};
 use serde_json;
 use serde_json::{Map, Value};
@@ -22,7 +22,7 @@ use material::{DiffuseMaterial, GlassMaterial, Material, MirrorMaterial};
 use math::{Point, Scalar, Vector};
 use renderer::{Renderer, StandardRenderer};
 use scene::{Scene, SceneNode};
-use spectrum::{Spectrum};
+use spectrum::Spectrum;
 use texture::{ConstantTexture, ImageTexture, Texture};
 
 // TODO: rewrite in order to use #[derive(Serialize, Deserialize)]
@@ -33,19 +33,20 @@ pub struct View {
     pub camera: Arc<Camera + Sync + Send>,
     pub samples: u32,
     pub depth: i32,
-    pub renderer: Arc<Renderer + Sync + Send>
+    pub renderer: Arc<Renderer + Sync + Send>,
 }
 
 impl View {
     pub fn new(camera: Arc<Camera + Sync + Send>,
                samples: u32,
                depth: i32,
-               renderer: Arc<Renderer + Sync + Send>) -> View {
+               renderer: Arc<Renderer + Sync + Send>)
+               -> View {
         View {
-            camera,
-            samples,
-            depth,
-            renderer
+            camera: camera,
+            samples: samples,
+            depth: depth,
+            renderer: renderer,
         }
     }
 }
@@ -63,8 +64,11 @@ pub enum Error {
     MalformedSpectrum(&'static str),
     MalformedVector(&'static str),
     MissingKey(&'static str),
-    MissingReference { typ: &'static str, name: &'static str },
-    Texture(::image::ImageError)
+    MissingReference {
+        typ: &'static str,
+        name: &'static str,
+    },
+    Texture(::image::ImageError),
 }
 
 impl error::Error for Error {
@@ -82,7 +86,7 @@ impl error::Error for Error {
             Error::MalformedVector(err) => err,
             Error::MissingKey(err) => err,
             Error::MissingReference { name, .. } => name,
-            Error::Texture(ref err) => err.description()
+            Error::Texture(ref err) => err.description(),
         }
     }
 
@@ -99,8 +103,8 @@ impl error::Error for Error {
             Error::MalformedSpectrum(_) => None,
             Error::MalformedVector(_) => None,
             Error::MissingKey(_) => None,
-            Error::MissingReference {..} => None,
-            Error::Texture(ref err) => Some(err)
+            Error::MissingReference { .. } => None,
+            Error::Texture(ref err) => Some(err),
         }
     }
 }
@@ -131,8 +135,10 @@ impl fmt::Display for Error {
             Error::MalformedSpectrum(err) => write!(f, "Malformed spectrum: {}", err),
             Error::MalformedVector(err) => write!(f, "Malformed vector: {}", err),
             Error::MissingKey(err) => write!(f, "Missing key: {}", err),
-            Error::MissingReference { typ, name } => write!(f, "Referenced {} with name '{}' not found.", typ, name),
-            Error::Texture(ref err) => write!(f, "Texture error: {}", err)
+            Error::MissingReference { typ, name } => {
+                write!(f, "Referenced {} with name '{}' not found.", typ, name)
+            }
+            Error::Texture(ref err) => write!(f, "Texture error: {}", err),
         }
     }
 }
@@ -143,7 +149,7 @@ pub type Result<T> = result::Result<T, Error>;
 
 /// Parse the scene description from a JSON formatted string.
 pub fn parse_scene(json: &str) -> Result<(Scene, HashMap<String, View>)> {
-	let data: Value = try!(serde_json::from_str(json));
+    let data: Value = try!(serde_json::from_str(json));
 
     let cameras = try!(data.pointer("/cameras").ok_or(Error::MissingKey("cameras")));
     let views = try!(data.pointer("/views").ok_or(Error::MissingKey("views")));
@@ -208,17 +214,21 @@ fn parse_camera(data: &Value) -> Result<Arc<Camera + Sync + Send>> {
     let camera_type = try!(try_get_string(camera_type, "type"));
 
     match camera_type {
-        "Perspective" => Ok(Arc::new(PerspectiveCamera::new(transform, 
-                                                         width as u32, 
-                                                         height as u32, 
-                                                         fov.to_radians(), 
-                                                         near, 
-                                                         far)) as Arc<Camera + Sync + Send>),
-        _ => panic!("Unrecognised camera type: {}", camera_type)
+        "Perspective" => {
+            Ok(Arc::new(PerspectiveCamera::new(transform,
+                                               width as u32,
+                                               height as u32,
+                                               fov.to_radians(),
+                                               near,
+                                               far)) as Arc<Camera + Sync + Send>)
+        }
+        _ => panic!("Unrecognised camera type: {}", camera_type),
     }
 }
 
-fn parse_views(data: &Value, cameras: &HashMap<String, Arc<Camera + Sync + Send>>) -> Result<HashMap<String, View>> {
+fn parse_views(data: &Value,
+               cameras: &HashMap<String, Arc<Camera + Sync + Send>>)
+               -> Result<HashMap<String, View>> {
     let data = try!(data.as_object().ok_or(Error::ExpectedObject("views")));
 
     let mut views = HashMap::new();
@@ -247,14 +257,14 @@ fn parse_view(data: &Value, cameras: &HashMap<String, Arc<Camera + Sync + Send>>
     let integrator = match integrator {
         "Path" => Box::new(PathTraced::new(depth as i32)) as Box<Integrator + Sync + Send>,
         "Whitted" => Box::new(Whitted::new(depth as i32)) as Box<Integrator + Sync + Send>,
-        _ => panic!("Unrecognised integrator: {}", integrator)
+        _ => panic!("Unrecognised integrator: {}", integrator),
     };
 
     let renderer = try!(data.pointer("/renderer").ok_or(Error::MissingKey("renderer")));
     let renderer = try!(renderer.as_str().ok_or(Error::ExpectedString("renderer")));
     let renderer = match renderer {
         "Standard" => Arc::new(StandardRenderer::new(integrator)) as Arc<Renderer + Sync + Send>,
-        _ => panic!("Unrecognised renderer: {}", renderer)
+        _ => panic!("Unrecognised renderer: {}", renderer),
     };
 
     Ok(View::new(camera.clone(), samples as u32, depth as i32, renderer))
@@ -278,8 +288,10 @@ fn parse_material(data: &Value) -> Result<Arc<Material + Sync + Send>> {
     match material_type {
         "Glass" => Ok(Arc::new(GlassMaterial) as Arc<Material + Sync + Send>),
         "Mirror" => Ok(Arc::new(MirrorMaterial) as Arc<Material + Sync + Send>),
-        "Diffuse" => Ok(Arc::new(try!(parse_diffuse_material(data))) as Arc<Material + Sync + Send>),
-        _ => panic!("Unrecognised material type: {}", material_type)
+        "Diffuse" => {
+            Ok(Arc::new(try!(parse_diffuse_material(data))) as Arc<Material + Sync + Send>)
+        }
+        _ => panic!("Unrecognised material type: {}", material_type),
     }
 }
 
@@ -295,9 +307,11 @@ fn parse_texture(data: &Value) -> Result<Box<Texture + Sync + Send>> {
     let texture_type = try!(data.get("type").ok_or(Error::MissingKey("type")));
     let texture_type = try!(try_get_string(texture_type, "type"));
     match texture_type {
-        "Constant" => Ok(Box::new(try!(parse_constant_texture(data))) as Box<Texture + Sync + Send>),
+        "Constant" => {
+            Ok(Box::new(try!(parse_constant_texture(data))) as Box<Texture + Sync + Send>)
+        }
         "Image" => Ok(Box::new(try!(parse_image_texture(data))) as Box<Texture + Sync + Send>),
-        _ => panic!("Unrecognised texture type: {}", texture_type)
+        _ => panic!("Unrecognised texture type: {}", texture_type),
     }
 }
 
@@ -316,7 +330,9 @@ fn parse_image_texture(data: &Map<String, Value>) -> Result<ImageTexture> {
     Ok(ImageTexture::new(image.clone()))
 }
 
-fn parse_objects(data: &Value, materials: &HashMap<String, Arc<Material + Sync + Send>>) -> Result<Vec<Arc<SceneNode>>> {
+fn parse_objects(data: &Value,
+                 materials: &HashMap<String, Arc<Material + Sync + Send>>)
+                 -> Result<Vec<Arc<SceneNode>>> {
     let data = try!(data.as_object().ok_or(Error::ExpectedObject("objects")));
 
     // let mut objects = HashMap::new();
@@ -329,7 +345,9 @@ fn parse_objects(data: &Value, materials: &HashMap<String, Arc<Material + Sync +
     Ok(objects)
 }
 
-fn parse_object(data: &Value, materials: &HashMap<String, Arc<Material + Sync + Send>>) -> Result<SceneNode> {
+fn parse_object(data: &Value,
+                materials: &HashMap<String, Arc<Material + Sync + Send>>)
+                -> Result<SceneNode> {
     let data = try!(data.as_object().ok_or(Error::ExpectedObject("object")));
 
     let material = try!(data.get("material").ok_or(Error::MissingKey("material")));
@@ -345,13 +363,15 @@ fn parse_object(data: &Value, materials: &HashMap<String, Arc<Material + Sync + 
     let (Intersectable, aabb) = match Intersectable {
         "Cuboid" => try!(parse_cuboid(data, &transform)),
         "Ball" => try!(parse_ball(data, &transform)),
-        _ => panic!("Unrecognised Intersectable: {}", Intersectable)
+        _ => panic!("Unrecognised Intersectable: {}", Intersectable),
     };
 
     Ok(SceneNode::new(transform, material.clone(), Intersectable, aabb))
 }
 
-fn parse_cuboid(data: &Map<String, Value>, transform: &Isometry3<Scalar>) -> Result<(Intersectable, AABB3<Scalar>)> {
+fn parse_cuboid(data: &Map<String, Value>,
+                transform: &Isometry3<Scalar>)
+                -> Result<(Intersectable, AABB3<Scalar>)> {
     let extents = try!(data.get("extents").ok_or(Error::MissingKey("extents")));
     let extents = try!(parse_vector(extents));
 
@@ -360,7 +380,9 @@ fn parse_cuboid(data: &Map<String, Value>, transform: &Isometry3<Scalar>) -> Res
     Ok((Box::new(cuboid) as Box<RayCast<Point, Isometry3<Scalar>> + Sync + Send>, aabb))
 }
 
-fn parse_ball(data: &Map<String, Value>, transform: &Isometry3<Scalar>) -> Result<(Intersectable, AABB3<Scalar>)> {
+fn parse_ball(data: &Map<String, Value>,
+              transform: &Isometry3<Scalar>)
+              -> Result<(Intersectable, AABB3<Scalar>)> {
     let radius = try!(data.get("radius").ok_or(Error::MissingKey("radius")));
     let radius = try!(try_get_f64(radius, "radius"));
 
@@ -391,7 +413,7 @@ fn parse_light(data: &Value) -> Result<Box<Light + Sync + Send>> {
 
     match light_type {
         "Point" => Ok(Box::new(try!(parse_point_light(data, colour))) as Box<Light + Sync + Send>),
-        _ => panic!("Unrecognised light type: {}", light_type)
+        _ => panic!("Unrecognised light type: {}", light_type),
     }
 }
 
@@ -439,7 +461,7 @@ fn parse_transform(data: &Value) -> Result<Isometry3<Scalar>> {
 
     let rotation = match data.get("rotation") {
         Some(rot) => try!(parse_vector(rot)),
-        None => na::zero()
+        None => na::zero(),
     };
 
     Ok(Isometry3::new(position, rotation))

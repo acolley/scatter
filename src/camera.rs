@@ -4,7 +4,7 @@ use alga::general::Inverse;
 use self::na::{Isometry3, Orthographic3, Perspective3, Point3, Translation, Vector4};
 
 use math::{Point, Scalar, Vector};
-use ray::{Ray};
+use ray::Ray;
 
 pub trait Camera {
     fn ray_from(&self, x: Scalar, y: Scalar) -> Ray;
@@ -17,7 +17,7 @@ pub struct PerspectiveCamera {
     width: u32,
     height: u32,
     transform: Isometry3<Scalar>,
-    proj: Perspective3<Scalar>
+    proj: Perspective3<Scalar>,
 }
 
 impl PerspectiveCamera {
@@ -26,12 +26,13 @@ impl PerspectiveCamera {
                height: u32,
                fov: Scalar,
                znear: Scalar,
-               zfar: Scalar) -> PerspectiveCamera {
+               zfar: Scalar)
+               -> PerspectiveCamera {
         PerspectiveCamera {
-            width,
-            height,
-            transform,
-            proj : Perspective3::new((width as Scalar) / (height as Scalar), fov, znear, zfar)
+            width: width,
+            height: height,
+            transform: transform,
+            proj: Perspective3::new((width as Scalar) / (height as Scalar), fov, znear, zfar),
         }
     }
 }
@@ -43,7 +44,8 @@ impl Camera for PerspectiveCamera {
         let device_y = -((y / self.height as Scalar) - 0.5) * 2.0;
         let point = Vector4::new(device_x, device_y, -1.0, 1.0);
         let h_eye = viewproj * point;
-        let eye: Point = Point::from_homogeneous(h_eye).expect("Could not convert from homogeneous Vector.");
+        let eye: Point = Point::from_homogeneous(h_eye)
+            .expect("Could not convert from homogeneous Vector.");
         let origin = Point3::from_coordinates(self.transform.translation.vector);
         let direction = na::normalize(&(eye - origin));
         Ray::new(origin, direction)
@@ -57,10 +59,14 @@ impl Camera for PerspectiveCamera {
     }
 
     #[inline]
-    fn width(&self) -> u32 { self.width }
+    fn width(&self) -> u32 {
+        self.width
+    }
 
     #[inline]
-    fn height(&self) -> u32 { self.height }
+    fn height(&self) -> u32 {
+        self.height
+    }
 }
 
 // pub struct OrthographicCamera {

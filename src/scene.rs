@@ -5,15 +5,15 @@ use uuid::Uuid;
 
 use na;
 use na::{Isometry3, Point2, Point3};
-use ncollide::bounding_volume::{AABB3};
-use ncollide::partitioning::{BVT};
+use ncollide::bounding_volume::AABB3;
+use ncollide::partitioning::BVT;
 use ncollide::query::{RayCast, RayInterferencesCollector};
 
-use bxdf::{BSDF};
-use light::{Light};
-use material::{Material};
+use bxdf::BSDF;
+use light::Light;
+use material::Material;
 use math::{Normal, Point, Scalar, Vector};
-use ray::{Ray};
+use ray::Ray;
 
 /// Structure representing an object in the
 /// Scene that can be shaded.
@@ -22,7 +22,7 @@ pub struct SceneNode {
     pub transform: Isometry3<Scalar>,
     pub material: Arc<Material + Sync + Send>,
     pub geom: Box<RayCast<Point, Isometry3<Scalar>> + Sync + Send>,
-    pub aabb: AABB3<Scalar>
+    pub aabb: AABB3<Scalar>,
 }
 
 /// Structure storing information about an
@@ -30,46 +30,45 @@ pub struct SceneNode {
 pub struct Intersection {
     pub point: Point,
     pub normal: Normal,
-    pub bsdf: BSDF
+    pub bsdf: BSDF,
 }
 
 impl Intersection {
     pub fn new(p: Point, n: Normal, bsdf: BSDF) -> Intersection {
         Intersection {
-            point : p,
-            normal : n,
-            bsdf : bsdf
+            point: p,
+            normal: n,
+            bsdf: bsdf,
         }
     }
 }
 
 impl SceneNode {
-    pub fn new(
-        transform: Isometry3<Scalar>,
-        material: Arc<Material + Sync + Send>,
-        geom: Box<RayCast<Point, Isometry3<Scalar>> + Sync + Send>,
-        aabb: AABB3<Scalar>) -> SceneNode
-    // where M: 'static + Sync + Send + Material,
-    //       N: 'static + Sync + Send + RayCast<Point, Isometry3<Scalar>> + HasAABB<Point, Isometry3<Scalar>> {
-        {
+    pub fn new(transform: Isometry3<Scalar>,
+               material: Arc<Material + Sync + Send>,
+               geom: Box<RayCast<Point, Isometry3<Scalar>> + Sync + Send>,
+               aabb: AABB3<Scalar>)
+               -> SceneNode {
         SceneNode {
-            uuid : Uuid::new_v4(),
-            transform : transform,
-            material : material,
-            aabb : aabb,
-            geom : geom
+            uuid: Uuid::new_v4(),
+            transform: transform,
+            material: material,
+            aabb: aabb,
+            geom: geom,
         }
     }
 }
 
 pub struct Scene {
-	pub lights: Vec<Box<Light + Sync + Send>>,
-    world: BVT<Arc<SceneNode>, AABB3<Scalar>>
+    pub lights: Vec<Box<Light + Sync + Send>>,
+    world: BVT<Arc<SceneNode>, AABB3<Scalar>>,
 }
 
 /// Get the nearest node and surface info at the intersection
 /// point intersected by the given ray.
-fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneNode, f64, Vector, Option<Point2<f64>>)> {
+fn get_nearest<'a>(ray: &Ray,
+                   nodes: &'a [Arc<SceneNode>])
+                   -> Option<(&'a SceneNode, f64, Vector, Option<Point2<f64>>)> {
     let mut nearest_node: Option<&SceneNode> = None;
     let mut nearest_toi = std::f64::MAX;
     let mut nearest_normal = na::zero();
@@ -89,7 +88,7 @@ fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneN
                     nearest_normal = isect.normal;
                     nearest_uvs = isect.uvs;
                 }
-            },
+            }
             _ => {}
         }
     }
@@ -105,7 +104,7 @@ impl Scene {
         let leaves = nodes.iter().map(|n| (n.clone(), n.aabb.clone())).collect();
         Scene {
             lights: Vec::new(),
-            world: BVT::new_balanced(leaves)
+            world: BVT::new_balanced(leaves),
         }
     }
 
@@ -136,11 +135,11 @@ impl Scene {
             self.world.visit(&mut visitor);
         }
         intersections.iter()
-                     .map(|n| n.geom.toi_with_ray(&n.transform, &ray.ray, true))
-                     .filter(|x| x.is_some())
-                     .map(|x| x.unwrap())
-                     .filter(|&x| x > 0.0)
-                     .collect()
+            .map(|n| n.geom.toi_with_ray(&n.transform, &ray.ray, true))
+            .filter(|x| x.is_some())
+            .map(|x| x.unwrap())
+            .filter(|&x| x > 0.0)
+            .collect()
     }
 
     pub fn trace(&self, ray: &Ray) -> Option<Intersection> {
@@ -157,8 +156,8 @@ impl Scene {
             Some((ref node, toi, normal, uvs)) => {
                 let p = *ray.orig() + *ray.dir() * toi;
                 Some(Intersection::new(p, normal, node.material.get_bsdf(&normal, &uvs)))
-            },
-            None => None
+            }
+            None => None,
         }
     }
 }

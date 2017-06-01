@@ -2,27 +2,25 @@
 use std::sync::Arc;
 
 use na;
-use na::{Point2};
+use na::Point2;
 
 use image::{GenericImage, RgbImage};
-use math::{Scalar};
-use spectrum::{Spectrum};
+use math::Scalar;
+use spectrum::Spectrum;
 
 pub trait Texture {
-	fn sample(&self, uv: &Option<Point2<f64>>) -> Spectrum;
+    fn sample(&self, uv: &Option<Point2<f64>>) -> Spectrum;
 }
 
 /// A Texture that just has a single
 /// colour at any point on the surface.
 pub struct ConstantTexture {
-    colour: Spectrum
+    colour: Spectrum,
 }
 
 impl ConstantTexture {
     pub fn new(colour: Spectrum) -> ConstantTexture {
-        ConstantTexture {
-            colour : colour
-        }
+        ConstantTexture { colour: colour }
     }
 }
 
@@ -34,16 +32,14 @@ impl Texture for ConstantTexture {
 }
 
 pub struct ImageTexture {
-    data: Arc<RgbImage>
+    data: Arc<RgbImage>,
 }
 
 impl ImageTexture {
     // TODO: make it take an Rc<RgbImage> so that the image
     // can be shared instead of copied
     pub fn new(data: Arc<RgbImage>) -> ImageTexture {
-        ImageTexture {
-            data : data
-        }
+        ImageTexture { data: data }
     }
 }
 
@@ -58,8 +54,8 @@ impl Texture for ImageTexture {
                 Spectrum::new(p[0] as Scalar / 255.0,
                               p[1] as Scalar / 255.0,
                               p[2] as Scalar / 255.0)
-            },
-            None => na::zero()
+            }
+            None => na::zero(),
         }
     }
 }

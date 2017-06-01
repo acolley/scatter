@@ -5,7 +5,7 @@ use std::f64::consts;
 use na;
 use na::{Point3, Vector3};
 
-pub use na::{dot};
+pub use na::dot;
 
 // TODO: allow scalar to be adjusted with a cfg build flag
 pub type Scalar = f64;
@@ -15,7 +15,7 @@ pub type Normal = Vector;
 
 pub fn uniform_sample_sphere(u1: Scalar, u2: Scalar) -> Vector {
     let z = 1.0 - 2.0 * u1;
-    let r = f64::max(0.0, 1.0 - z*z).sqrt();
+    let r = f64::max(0.0, 1.0 - z * z).sqrt();
     let phi = 2.0 * consts::PI * u2;
     let x = r * phi.cos();
     let y = r * phi.sin();

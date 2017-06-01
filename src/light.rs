@@ -4,13 +4,13 @@ use std::f64::consts;
 use na;
 use na::{Point3, Vector3};
 
-use ncollide::utils::{triangle_area};
+use ncollide::utils::triangle_area;
 use ncollide::shape::{Ball3, Cuboid3, Triangle3, TriMesh3};
 
 use math::{Normal, Point, Scalar, Vector, uniform_sample_sphere};
-use ray::{Ray};
-use scene::{Scene};
-use spectrum::{Spectrum};
+use ray::Ray;
+use scene::Scene;
+use spectrum::Spectrum;
 
 pub trait Light {
     fn colour(&self) -> &Spectrum;
@@ -25,7 +25,9 @@ pub trait Light {
     fn sample(&self, p: &Point) -> (Spectrum, Vector);
 
     #[inline]
-    fn emitted(&self, wi: &Vector) -> Spectrum { na::zero() }
+    fn emitted(&self, wi: &Vector) -> Spectrum {
+        na::zero()
+    }
 
     fn shadow(&self, p: &Point, scene: &Scene) -> bool;
 }
@@ -33,25 +35,29 @@ pub trait Light {
 pub struct PointLight {
     intensity: Scalar,
     colour: Spectrum,
-	position: Point,
-    radius: Scalar
+    position: Point,
+    radius: Scalar,
 }
 
 impl PointLight {
     pub fn new(intensity: Scalar, colour: Spectrum, position: Point, radius: Scalar) -> PointLight {
         PointLight {
-            intensity : intensity,
-            colour : colour,
-            position : position,
-            radius : radius
+            intensity: intensity,
+            colour: colour,
+            position: position,
+            radius: radius,
         }
     }
 }
 
 impl Light for PointLight {
-    fn colour(&self) -> &Spectrum { &self.colour }
+    fn colour(&self) -> &Spectrum {
+        &self.colour
+    }
 
-    fn is_delta(&self) -> bool { true }
+    fn is_delta(&self) -> bool {
+        true
+    }
 
     /// Give the amount of incident light at a particular
     /// point in the scene.
@@ -74,31 +80,36 @@ impl Light for PointLight {
         let mut dir = self.position - *p;
         dir.normalize_mut();
         let ray = Ray::new(*p, dir);
-        scene.intersections(&ray).iter()
-                                 .any(|&x| x < dist)
+        scene.intersections(&ray)
+            .iter()
+            .any(|&x| x < dist)
     }
 }
 
 pub struct DirectionalLight {
     colour: Spectrum,
-    direction: Vector
+    direction: Vector,
 }
 
 impl DirectionalLight {
     pub fn new(colour: Spectrum, direction: Vector) -> DirectionalLight {
         DirectionalLight {
-            colour : colour,
-            direction : direction
+            colour: colour,
+            direction: direction,
         }
     }
 }
 
 impl Light for DirectionalLight {
     #[inline]
-    fn colour(&self) -> &Spectrum { &self.colour }
+    fn colour(&self) -> &Spectrum {
+        &self.colour
+    }
 
     #[inline]
-    fn is_delta(&self) -> bool { true }
+    fn is_delta(&self) -> bool {
+        true
+    }
 
     #[inline]
     fn sample(&self, _: &Point) -> (Spectrum, Vector) {
@@ -212,7 +223,7 @@ impl Light for DirectionalLight {
 //         let p = na::zero() + self.radius() * uniform_sample_sphere(u1, u2);
 //         // TODO: need some way to transform a point into world space
 //         // from the object space
-//         // let n = 
+//         // let n =
 //         (na::zero(), na::zero())
 //     }
 // }

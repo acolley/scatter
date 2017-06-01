@@ -1,7 +1,7 @@
 
 use std::f64::consts;
 
-use na::{Vector3};
+use na::Vector3;
 
 #[inline]
 pub fn concentric_sample_disc(u1: f64, u2: f64) -> (f64, f64) {
@@ -20,21 +20,21 @@ pub fn concentric_sample_disc(u1: f64, u2: f64) -> (f64, f64) {
         if sx > sy {
             // first region of disc
             if sy > 0.0 {
-                (sx, sy/sx)
+                (sx, sy / sx)
             } else {
-                (sx, 8.0 + sy/sx)
+                (sx, 8.0 + sy / sx)
             }
         } else {
             // second region
-            (sy, 2.0 - sx/sy)
+            (sy, 2.0 - sx / sy)
         }
     } else {
         if sx <= sy {
             // third region of disc
-            (-sx, 4.0 - sy/-sx)
+            (-sx, 4.0 - sy / -sx)
         } else {
             // fourth region of disc
-            (-sy, 6.0 + sx/-sy)
+            (-sy, 6.0 + sx / -sy)
         }
     };
 
@@ -46,7 +46,7 @@ pub fn concentric_sample_disc(u1: f64, u2: f64) -> (f64, f64) {
 
 #[inline]
 pub fn cosine_sample_hemisphere(u1: f64, u2: f64) -> Vector3<f64> {
-	let (x, y) = concentric_sample_disc(u1, u2);
-    let z = f64::max(0.0, 1.0 - x*x - y*y).sqrt();
+    let (x, y) = concentric_sample_disc(u1, u2);
+    let z = f64::max(0.0, 1.0 - x * x - y * y).sqrt();
     Vector3::new(x, y, z)
 }

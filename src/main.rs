@@ -13,10 +13,10 @@ extern crate ncollide;
 extern crate tobj;
 
 use std::collections::HashMap;
-use std::io::{Read};
+use std::io::Read;
 use std::f64::consts;
-use std::fs::{File};
-use std::path::{Path};
+use std::fs::File;
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
@@ -45,8 +45,8 @@ use integrator::{Integrator, Whitted};
 use light::{Light, PointLight};
 use material::{DiffuseMaterial, GlassMaterial, MirrorMaterial};
 use math::{Point, Scalar, Vector};
-use parse::{View};
-use rand::{StdRng};
+use parse::View;
+use rand::StdRng;
 use renderer::{Renderer, StandardRenderer};
 use scene::{Scene, SceneNode};
 use spectrum::Spectrum;
@@ -64,36 +64,28 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
         let mut uvs = Vec::new();
 
         for i in 0..mesh.indices.len() / 3 {
-            indices.push(
-                Point3::new(mesh.indices[i * 3] as usize,
-                          mesh.indices[i * 3 + 1] as usize,
-                          mesh.indices[i * 3 + 2] as usize)
-            );
+            indices.push(Point3::new(mesh.indices[i * 3] as usize,
+                                     mesh.indices[i * 3 + 1] as usize,
+                                     mesh.indices[i * 3 + 2] as usize));
         }
 
         for v in 0..mesh.positions.len() / 3 {
-            vertices.push(
-                Point3::new(mesh.positions[v * 3] as Scalar,
-                          mesh.positions[v * 3 + 1] as Scalar,
-                          mesh.positions[v * 3 + 2] as Scalar)
-            );
+            vertices.push(Point3::new(mesh.positions[v * 3] as Scalar,
+                                      mesh.positions[v * 3 + 1] as Scalar,
+                                      mesh.positions[v * 3 + 2] as Scalar));
         }
 
         for t in 0..mesh.texcoords.len() / 2 {
-            uvs.push(
-                Point2::new(mesh.texcoords[t * 2] as Scalar,
-                          mesh.texcoords[t * 2 + 1] as Scalar)
-            );
+            uvs.push(Point2::new(mesh.texcoords[t * 2] as Scalar,
+                                 mesh.texcoords[t * 2 + 1] as Scalar));
         }
 
         let normals = if mesh.normals.len() > 0 {
             let mut normals = Vec::new();
             for n in 0..mesh.normals.len() / 3 {
-                normals.push(
-                    Vector3::new(mesh.normals[n * 3] as Scalar,
-                              mesh.normals[n * 3 + 1] as Scalar,
-                              mesh.normals[n * 3 + 2] as Scalar)
-                );
+                normals.push(Vector3::new(mesh.normals[n * 3] as Scalar,
+                                          mesh.normals[n * 3 + 1] as Scalar,
+                                          mesh.normals[n * 3 + 2] as Scalar));
             }
             Some(Arc::new(normals))
         } else {
@@ -107,26 +99,25 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
             Some(Arc::new(normals))
         };
 
-        let uvs = if uvs.len() > 0 { Some(Arc::new(uvs)) } else { None };
+        let uvs = if uvs.len() > 0 {
+            Some(Arc::new(uvs))
+        } else {
+            None
+        };
 
-        meshes.push(TriMesh3::new(
-            Arc::new(vertices),
-            Arc::new(indices),
-            uvs,
-            normals
-        ))
+        meshes.push(TriMesh3::new(Arc::new(vertices), Arc::new(indices), uvs, normals))
     }
     meshes
 }
 
-fn render(
-    width: u32,
-    height: u32,
-    nthreads: u32,
-    samples_per_pixel: u32,
-    camera: &Arc<Camera + Sync + Send>,
-    scene: &Arc<Scene>,
-    renderer: &Arc<Renderer + Sync + Send>) -> Vec<u8> {
+fn render(width: u32,
+          height: u32,
+          nthreads: u32,
+          samples_per_pixel: u32,
+          camera: &Arc<Camera + Sync + Send>,
+          scene: &Arc<Scene>,
+          renderer: &Arc<Renderer + Sync + Send>)
+          -> Vec<u8> {
     let (tx, rx) = mpsc::channel();
     // partition along the x dimension
     let xchunk_size = width / nthreads;
@@ -145,7 +136,7 @@ fn render(
                 for y in 0..height {
                     let mut c: Vector = na::zero();
                     if samples_per_pixel == 1 {
-                    let ray = camera.ray_from(x as Scalar, y as Scalar);
+                        let ray = camera.ray_from(x as Scalar, y as Scalar);
                         c = renderer.render(&ray, &scene, &mut rng);
                     } else {
                         for _ in 0..samples_per_pixel {
@@ -159,12 +150,15 @@ fn render(
                         }
                     }
                     c = c / (samples_per_pixel as Scalar);
-                    tx.send((x, y, c)).ok().expect(&format!("Could not send Spectrum value for ({}, {})", x, y));
+                    tx.send((x, y, c))
+                        .ok()
+                        .expect(&format!("Could not send Spectrum value for ({}, {})", x, y));
                 }
             }
         });
     }
-    let mut pixel_map: HashMap<(u32, u32), Spectrum> = HashMap::with_capacity((width * height) as usize);
+    let mut pixel_map: HashMap<(u32, u32), Spectrum> = HashMap::with_capacity((width * height) as
+                                                                              usize);
 
     // explicitly drop the transmission end
     // otherwise the receiver will block indefinitely
@@ -196,47 +190,66 @@ fn setup_scene<P: AsRef<Path>>(filename: P) -> (Scene, HashMap<String, View>) {
 
     match parse::parse_scene(&json_str) {
         Ok(res) => res,
-        Err(err) => panic!("{}", err)
+        Err(err) => panic!("{}", err),
     }
 }
 
 fn main() {
     let matches = App::new("pbrt")
-                       .version("0.1")
-                       .arg(Arg::with_name("SCENE")
-                            .required(true))
-                       .arg(Arg::with_name("OUTPUT")
-                            .short("o")
-                            .long("output")
-                            .takes_value(true))
-                       .arg(Arg::with_name("WIDTH")
-                            .short("w")
-                            .long("width")
-                            .takes_value(true))
-                       .arg(Arg::with_name("HEIGHT")
-                            .short("h")
-                            .long("height")
-                            .takes_value(true))
-                       .arg(Arg::with_name("SAMPLES")
-                            .short("s")
-                            .long("samples")
-                            .takes_value(true))
-                       .arg(Arg::with_name("DEPTH")
-                            .short("d")
-                            .long("depth")
-                            .takes_value(true))
-                       .arg(Arg::with_name("THREADS")
-                            .short("t")
-                            .long("threads")
-                            .takes_value(true))
-                       .get_matches();
+        .version("0.1")
+        .arg(Arg::with_name("SCENE").required(true))
+        .arg(Arg::with_name("OUTPUT")
+            .short("o")
+            .long("output")
+            .takes_value(true))
+        .arg(Arg::with_name("WIDTH")
+            .short("w")
+            .long("width")
+            .takes_value(true))
+        .arg(Arg::with_name("HEIGHT")
+            .short("h")
+            .long("height")
+            .takes_value(true))
+        .arg(Arg::with_name("SAMPLES")
+            .short("s")
+            .long("samples")
+            .takes_value(true))
+        .arg(Arg::with_name("DEPTH")
+            .short("d")
+            .long("depth")
+            .takes_value(true))
+        .arg(Arg::with_name("THREADS")
+            .short("t")
+            .long("threads")
+            .takes_value(true))
+        .get_matches();
 
-    let width = matches.value_of("WIDTH").unwrap_or("100").parse::<u32>().ok().expect("Value for width is not a valid unsigned integer");
-    let height = matches.value_of("HEIGHT").unwrap_or("100").parse::<u32>().ok().expect("Value for height is not a valid unsigned integer");
-    let samples = matches.value_of("SAMPLES").unwrap_or("3").parse::<u32>().ok().expect("Value for samples is not a valid unsigned integer");
+    let width = matches.value_of("WIDTH")
+        .unwrap_or("100")
+        .parse::<u32>()
+        .ok()
+        .expect("Value for width is not a valid unsigned integer");
+    let height = matches.value_of("HEIGHT")
+        .unwrap_or("100")
+        .parse::<u32>()
+        .ok()
+        .expect("Value for height is not a valid unsigned integer");
+    let samples = matches.value_of("SAMPLES")
+        .unwrap_or("3")
+        .parse::<u32>()
+        .ok()
+        .expect("Value for samples is not a valid unsigned integer");
     assert!(samples > 0);
-    let depth = matches.value_of("DEPTH").unwrap_or("6").parse::<i32>().ok().expect("Value for depth is not a valid signed integer");
-    let nthreads = matches.value_of("THREADS").unwrap_or("1").parse::<u32>().ok().expect("Value for threads is not a valid unsigned integer");
+    let depth = matches.value_of("DEPTH")
+        .unwrap_or("6")
+        .parse::<i32>()
+        .ok()
+        .expect("Value for depth is not a valid signed integer");
+    let nthreads = matches.value_of("THREADS")
+        .unwrap_or("1")
+        .parse::<u32>()
+        .ok()
+        .expect("Value for threads is not a valid unsigned integer");
     assert!(nthreads > 0);
 
     let scene_filename = matches.value_of("SCENE").unwrap();
@@ -245,7 +258,7 @@ fn main() {
     let scene = Arc::new(scene);
 
     for (name, view) in views.iter() {
-        let colours = render(view.camera.width(), 
+        let colours = render(view.camera.width(),
                              view.camera.height(),
                              nthreads,
                              view.samples,
@@ -253,8 +266,10 @@ fn main() {
                              &scene,
                              &view.renderer);
         let filename = matches.value_of("OUTPUT").unwrap_or(name);
-        let ref mut out = File::create(&Path::new(filename)).ok().expect("Could not create image file");
-        let img = image::ImageBuffer::from_raw(width, height, colours).expect("Could not create image buffer");
+        let ref mut out =
+            File::create(&Path::new(filename)).ok().expect("Could not create image file");
+        let img = image::ImageBuffer::from_raw(width, height, colours)
+            .expect("Could not create image buffer");
         let _ = image::ImageRgb8(img).save(out, image::PNG);
     }
 }

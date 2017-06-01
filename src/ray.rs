@@ -1,11 +1,11 @@
 
 use na::{Point3, Vector3};
-use ncollide::query::{Ray3};
+use ncollide::query::Ray3;
 
 #[derive(Clone)]
 pub struct Ray {
     pub ray: Ray3<f64>,
-	pub depth: i32
+    pub depth: i32,
 }
 
 impl Ray {
@@ -15,8 +15,8 @@ impl Ray {
 
     pub fn new_with_depth(orig: Point3<f64>, dir: Vector3<f64>, depth: i32) -> Ray {
         Ray {
-            ray : Ray3::new(orig, dir),
-            depth : depth
+            ray: Ray3::new(orig, dir),
+            depth: depth,
         }
     }
 
