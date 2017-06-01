@@ -297,7 +297,7 @@ fn parse_material(data: &Value) -> Result<Arc<Material + Sync + Send>> {
 
 fn parse_diffuse_material(data: &Map<String, Value>) -> Result<DiffuseMaterial> {
     let texture = try!(data.get("texture").ok_or(Error::MissingKey("texture")));
-    let texture = try!(parse_texture(&texture));
+    let texture = try!(parse_texture(texture));
     Ok(DiffuseMaterial::new(texture))
 }
 
@@ -337,7 +337,7 @@ fn parse_objects(data: &Value,
 
     // let mut objects = HashMap::new();
     let mut objects = Vec::new();
-    for (name, value) in data.iter() {
+    for (_name, value) in data.iter() {
         let object = Arc::new(try!(parse_object(value, materials)));
         // objects.insert(*name, object);
         objects.push(object);
@@ -358,15 +358,15 @@ fn parse_object(data: &Value,
     let transform = try!(data.get("transform").ok_or(Error::MissingKey("transform")));
     let transform = try!(parse_transform(transform));
 
-    let Intersectable = try!(data.get("Intersectable").ok_or(Error::MissingKey("Intersectable")));
-    let Intersectable = try!(try_get_string(Intersectable, "Intersectable"));
-    let (Intersectable, aabb) = match Intersectable {
+    let shape = try!(data.get("shape").ok_or(Error::MissingKey("shape")));
+    let shape = try!(try_get_string(shape, "shape"));
+    let (shape, aabb) = match shape {
         "Cuboid" => try!(parse_cuboid(data, &transform)),
         "Ball" => try!(parse_ball(data, &transform)),
-        _ => panic!("Unrecognised Intersectable: {}", Intersectable),
+        _ => panic!("Unrecognised shape: {}", shape),
     };
 
-    Ok(SceneNode::new(transform, material.clone(), Intersectable, aabb))
+    Ok(SceneNode::new(transform, material.clone(), shape, aabb))
 }
 
 fn parse_cuboid(data: &Map<String, Value>,
@@ -481,21 +481,21 @@ fn parse_spectrum(data: &Value) -> Result<Spectrum> {
 }
 
 fn try_get_string<'a>(value: &'a Value, key: &'static str) -> Result<&'a str> {
-    value.as_str().ok_or(Error::ExpectedString(key))
+    value.as_str().ok_or_else(|| Error::ExpectedString(key))
 }
 
 fn try_get_object<'a>(value: &'a Value, key: &'static str) -> Result<&'a Map<String, Value>> {
-    value.as_object().ok_or(Error::ExpectedObject(key))
+    value.as_object().ok_or_else(|| Error::ExpectedObject(key))
 }
 
 fn try_get_u64(value: &Value, key: &'static str) -> Result<u64> {
-    value.as_u64().ok_or(Error::ExpectedU64(key))
+    value.as_u64().ok_or_else(|| Error::ExpectedU64(key))
 }
 
 fn try_get_f64(value: &Value, key: &'static str) -> Result<f64> {
-    value.as_f64().ok_or(Error::ExpectedF64(key))
+    value.as_f64().ok_or_else(|| Error::ExpectedF64(key))
 }
 
 fn try_get_i64(value: &Value, key: &'static str) -> Result<i64> {
-    value.as_i64().ok_or(Error::ExpectedI64(key))
+    value.as_i64().ok_or_else(|| Error::ExpectedI64(key))
 }

@@ -48,8 +48,7 @@ pub fn sample_one_light(wo: &Vector,
         return na::zero();
     }
     let light = rng.choose(&scene.lights).expect("Light could not be chosen");
-    let l = sample_light(light, wo, isect, scene, BSDF_ALL - BSDF_SPECULAR) * nlights as f64;
-    l
+    sample_light(light, wo, isect, scene, BSDF_ALL - BSDF_SPECULAR) * nlights as f64
 }
 
 /// Integrate over all lights computing
@@ -79,8 +78,7 @@ pub fn specular_reflect(ray: &Ray,
         // to avoid intersection with the surface we just came from
         let ray = Ray::new_with_depth(isect.point + wi * 0.000000000001, wi, ray.depth + 1);
         let li = renderer.render(&ray, scene, rng);
-        let l = f.component_mul(&li) * (na::dot(&wi, n).abs() / pdf);
-        l
+        f.component_mul(&li) * (na::dot(&wi, n).abs() / pdf)
     } else {
         na::zero()
     }
@@ -102,8 +100,7 @@ pub fn specular_transmit(ray: &Ray,
         // to avoid intersection with the surface we just came from
         let ray = Ray::new_with_depth(isect.point + wi * 0.000000000001, wi, ray.depth + 1);
         let li = renderer.render(&ray, scene, rng);
-        let l = f.component_mul(&li) * (na::dot(&wi, n).abs() / pdf);
-        l
+        f.component_mul(&li) * (na::dot(&wi, n).abs() / pdf)
     } else {
         na::zero()
     }
@@ -138,11 +135,11 @@ impl Integrator for Whitted {
                  rng: &mut StdRng)
                  -> Spectrum {
         let wo = -(*ray.dir());
-        let mut l = sample_all_lights(&wo, &isect, scene);
+        let mut l = sample_all_lights(&wo, isect, scene);
 
         if ray.depth < self.depth {
-            l = l + specular_reflect(ray, &isect, scene, renderer, rng);
-            l = l + specular_transmit(ray, &isect, scene, renderer, rng);
+            l = l + specular_reflect(ray, isect, scene, renderer, rng);
+            l = l + specular_transmit(ray, isect, scene, renderer, rng);
         }
         l
     }
@@ -183,12 +180,12 @@ fn path_bounce(tracer: &PathTraced,
         // TODO: this should perform proper sampling
         // using Monte Carlo techniques, currently it's
         // exactly the same as the other branch
-        l = l + throughput.component_mul(&sample_one_light(&wo, &isect, scene, rng));
+        l = l + throughput.component_mul(&sample_one_light(&wo, isect, scene, rng));
     } else {
-        l = l + throughput.component_mul(&sample_one_light(&wo, &isect, scene, rng));
+        l = l + throughput.component_mul(&sample_one_light(&wo, isect, scene, rng));
     }
 
-    let mut throughput = throughput.clone();
+    let mut throughput = throughput;
 
     // sample BSDF to get next direction for path
     let (f, wi, pdf, flags) = bsdf.sample_f(&wo, rng, BSDF_ALL);

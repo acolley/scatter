@@ -71,7 +71,7 @@ pub trait BxDF {
         // Cosine-sample the hemisphere, flipping the direction if necessary
         let mut wi = cosine_sample_hemisphere(u1, u2);
         if wo.z < 0.0 {
-            wi.z = wi.z * -1.0;
+            wi.z *= -1.0;
         }
         let l = self.f(wo, &wi);
         let pdf = self.pdf(wo, &wi);
@@ -250,18 +250,16 @@ impl BSDF {
     }
 
     fn world_to_local_from_normal(normal: &Vector) -> Rotation3<Scalar> {
-        let (tangent, binormal) = math::coordinate_system(&normal);
-        unsafe {
-            Rotation3::from_matrix_unchecked(Matrix3::new(tangent.x,
-                                                          tangent.y,
-                                                          tangent.z,
-                                                          binormal.x,
-                                                          binormal.y,
-                                                          binormal.z,
-                                                          normal.x,
-                                                          normal.y,
-                                                          normal.z))
-        }
+        let (tangent, binormal) = math::coordinate_system(normal);
+        Rotation3::from_matrix_unchecked(Matrix3::new(tangent.x,
+                                                        tangent.y,
+                                                        tangent.z,
+                                                        binormal.x,
+                                                        binormal.y,
+                                                        binormal.z,
+                                                        normal.x,
+                                                        normal.y,
+                                                        normal.z))
     }
 
     #[inline]
@@ -302,10 +300,7 @@ impl BSDF {
 
                 // compute overall pdf with all matching BxDFs
                 if !bxdf_type.intersects(BSDF_SPECULAR) && bxdfs.len() > 1 {
-                    pdf = 0.0;
-                    for bxdf in self.bxdfs.iter().filter(|x| x.matches_flags(flags)) {
-                        pdf = pdf + bxdf.pdf(&wo, &wi);
-                    }
+                    pdf = self.bxdfs.iter().filter(|x| x.matches_flags(flags)).map(|bxdf| bxdf.pdf(&wo, &wi)).sum();
                 }
                 let pdf = if bxdfs.len() > 1 {
                     pdf / bxdfs.len() as Scalar
@@ -389,7 +384,7 @@ pub struct FresnelConductor {
 
 impl FresnelConductor {
     pub fn new(eta: Spectrum, k: Spectrum) -> FresnelConductor {
-        FresnelConductor { eta: eta, k: k }
+        FresnelConductor { eta, k }
     }
 }
 
@@ -407,10 +402,7 @@ pub struct FresnelDielectric {
 
 impl FresnelDielectric {
     pub fn new(etai: Scalar, etat: Scalar) -> FresnelDielectric {
-        FresnelDielectric {
-            etai: etai,
-            etat: etat,
-        }
+        FresnelDielectric { etai, etat }
     }
 }
 

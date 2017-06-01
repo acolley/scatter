@@ -21,12 +21,12 @@ impl Ray {
     }
 
     #[inline]
-    pub fn orig<'a>(&'a self) -> &'a Point3<f64> {
+    pub fn orig(&self) -> &Point3<f64> {
         &self.ray.origin
     }
 
     #[inline]
-    pub fn dir<'a>(&'a self) -> &'a Vector3<f64> {
+    pub fn dir(&self) -> &Vector3<f64> {
         &self.ray.dir
     }
 }

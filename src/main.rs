@@ -54,7 +54,7 @@ use texture::{ConstantTexture, ImageTexture, Texture};
 
 fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
     let obj = tobj::load_obj(filename);
-    let (models, materials) = obj.ok().expect("Could not load .obj");
+    let (models, _materials) = obj.expect("Could not load .obj");
     let mut meshes = Vec::new();
 
     for model in models {
@@ -80,7 +80,16 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
                                  mesh.texcoords[t * 2 + 1] as Scalar));
         }
 
-        let normals = if mesh.normals.len() > 0 {
+        let normals = if mesh.normals.is_empty() {
+            let mut normals = Vec::new();
+            for idx in &indices {
+                let v1 = vertices[idx.x];
+                let v2 = vertices[idx.y];
+                let v3 = vertices[idx.z];
+                normals.push((v2 - v1).cross(&(v3 - v1)));
+            }
+            Some(Arc::new(normals))
+        } else {
             let mut normals = Vec::new();
             for n in 0..mesh.normals.len() / 3 {
                 normals.push(Vector3::new(mesh.normals[n * 3] as Scalar,
@@ -88,21 +97,12 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
                                           mesh.normals[n * 3 + 2] as Scalar));
             }
             Some(Arc::new(normals))
-        } else {
-            let mut normals = Vec::new();
-            for idx in indices.iter() {
-                let v1 = vertices[idx.x];
-                let v2 = vertices[idx.y];
-                let v3 = vertices[idx.z];
-                normals.push((v2 - v1).cross(&(v3 - v1)));
-            }
-            Some(Arc::new(normals))
         };
 
-        let uvs = if uvs.len() > 0 {
-            Some(Arc::new(uvs))
-        } else {
+        let uvs = if uvs.is_empty() {
             None
+        } else {
+            Some(Arc::new(uvs))
         };
 
         meshes.push(TriMesh3::new(Arc::new(vertices), Arc::new(indices), uvs, normals))
@@ -130,28 +130,26 @@ fn render(width: u32,
         let scene = scene.clone();
         let renderer = renderer.clone();
         thread::spawn(move || {
-            let mut rng = StdRng::new().ok().expect("Could not create random number generator");
+            let mut rng = StdRng::new().expect("Could not create random number generator");
             // let rng = StdRng.from_seed();
             for x in xstart..xend {
                 for y in 0..height {
-                    let mut c: Vector = na::zero();
-                    if samples_per_pixel == 1 {
+                    let mut c = if samples_per_pixel == 1 {
                         let ray = camera.ray_from(x as Scalar, y as Scalar);
-                        c = renderer.render(&ray, &scene, &mut rng);
+                        renderer.render(&ray, &scene, &mut rng)
                     } else {
-                        for _ in 0..samples_per_pixel {
+                        (0..samples_per_pixel).map(|_| {
                             // TODO: make the sampling methods into their
                             // own trait/struct implementations for different
                             // types of samplers to be used interchangeably
                             let dx = rand::random::<Scalar>() - 0.5;
                             let dy = rand::random::<Scalar>() - 0.5;
                             let ray = camera.ray_from((x as Scalar) + dx, (y as Scalar) + dy);
-                            c = c + renderer.render(&ray, &scene, &mut rng);
-                        }
-                    }
+                            renderer.render(&ray, &scene, &mut rng)
+                        }).fold(na::zero(), |sum, c| sum + c)
+                    };
                     c = c / (samples_per_pixel as Scalar);
                     tx.send((x, y, c))
-                        .ok()
                         .expect(&format!("Could not send Spectrum value for ({}, {})", x, y));
                 }
             }
@@ -184,7 +182,7 @@ fn render(width: u32,
 }
 
 fn setup_scene<P: AsRef<Path>>(filename: P) -> (Scene, HashMap<String, View>) {
-    let mut f = File::open(filename).ok().expect("Could not open scene file.");
+    let mut f = File::open(filename).expect("Could not open scene file.");
     let mut json_str = String::new();
     f.read_to_string(&mut json_str);
 
@@ -227,28 +225,23 @@ fn main() {
     let width = matches.value_of("WIDTH")
         .unwrap_or("100")
         .parse::<u32>()
-        .ok()
         .expect("Value for width is not a valid unsigned integer");
     let height = matches.value_of("HEIGHT")
         .unwrap_or("100")
         .parse::<u32>()
-        .ok()
         .expect("Value for height is not a valid unsigned integer");
     let samples = matches.value_of("SAMPLES")
         .unwrap_or("3")
         .parse::<u32>()
-        .ok()
         .expect("Value for samples is not a valid unsigned integer");
     assert!(samples > 0);
     let depth = matches.value_of("DEPTH")
         .unwrap_or("6")
         .parse::<i32>()
-        .ok()
         .expect("Value for depth is not a valid signed integer");
     let nthreads = matches.value_of("THREADS")
         .unwrap_or("1")
         .parse::<u32>()
-        .ok()
         .expect("Value for threads is not a valid unsigned integer");
     assert!(nthreads > 0);
 
@@ -257,7 +250,7 @@ fn main() {
     let (scene, views) = setup_scene(&scene_filename);
     let scene = Arc::new(scene);
 
-    for (name, view) in views.iter() {
+    for (name, view) in &views {
         let colours = render(view.camera.width(),
                              view.camera.height(),
                              nthreads,
@@ -266,8 +259,8 @@ fn main() {
                              &scene,
                              &view.renderer);
         let filename = matches.value_of("OUTPUT").unwrap_or(name);
-        let ref mut out =
-            File::create(&Path::new(filename)).ok().expect("Could not create image file");
+        let out =
+            &mut File::create(&Path::new(filename)).expect("Could not create image file");
         let img = image::ImageBuffer::from_raw(width, height, colours)
             .expect("Could not create image buffer");
         let _ = image::ImageRgb8(img).save(out, image::PNG);

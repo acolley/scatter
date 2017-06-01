@@ -74,22 +74,19 @@ fn get_nearest<'a>(ray: &Ray,
     let mut nearest_normal = na::zero();
     let mut nearest_uvs = None;
     for node in nodes {
-        match node.geom.toi_and_normal_and_uv_with_ray(&node.transform, &ray.ray, false) {
-            Some(isect) => {
-                // check toi is greater than zero to rule out intersection
-                // with the node whose surface we're casting a ray from
-                // Note: this is not 100% reliable I don't think
-                // this in tandem with code in renderer for casting reflection
-                // and transmission rays slightly off the point on the surface
-                // they came from should hopefully prevent artifacts
-                if isect.toi > 0.0 && isect.toi < nearest_toi {
-                    nearest_node = Some(node);
-                    nearest_toi = isect.toi;
-                    nearest_normal = isect.normal;
-                    nearest_uvs = isect.uvs;
-                }
+        if let Some(isect) = node.geom.toi_and_normal_and_uv_with_ray(&node.transform, &ray.ray, false) {
+            // check toi is greater than zero to rule out intersection
+            // with the node whose surface we're casting a ray from
+            // Note: this is not 100% reliable I don't think
+            // this in tandem with code in renderer for casting reflection
+            // and transmission rays slightly off the point on the surface
+            // they came from should hopefully prevent artifacts
+            if isect.toi > 0.0 && isect.toi < nearest_toi {
+                nearest_node = Some(node);
+                nearest_toi = isect.toi;
+                nearest_normal = isect.normal;
+                nearest_uvs = isect.uvs;
             }
-            _ => {}
         }
     }
     if nearest_node.is_some() {
@@ -153,7 +150,7 @@ impl Scene {
         }
 
         match get_nearest(ray, &intersections) {
-            Some((ref node, toi, normal, uvs)) => {
+            Some((node, toi, normal, uvs)) => {
                 let p = *ray.orig() + *ray.dir() * toi;
                 Some(Intersection::new(p, normal, node.material.get_bsdf(&normal, &uvs)))
             }
