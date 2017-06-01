@@ -59,44 +59,47 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
 
     for model in models {
         let mesh = &model.mesh;
-        let mut vertices = Vec::new();
-        let mut indices = Vec::new();
-        let mut uvs = Vec::new();
 
-        for i in 0..mesh.indices.len() / 3 {
-            indices.push(Point3::new(mesh.indices[i * 3] as usize,
-                                     mesh.indices[i * 3 + 1] as usize,
-                                     mesh.indices[i * 3 + 2] as usize));
-        }
+        let indices: Vec<Point3<usize>> = (0..mesh.indices.len() / 3)
+            .map(|i| {
+                Point3::new(mesh.indices[i * 3] as usize,
+                            mesh.indices[i * 3 + 1] as usize,
+                            mesh.indices[i * 3 + 2] as usize)
+            })
+            .collect();
 
-        for v in 0..mesh.positions.len() / 3 {
-            vertices.push(Point3::new(mesh.positions[v * 3] as Scalar,
-                                      mesh.positions[v * 3 + 1] as Scalar,
-                                      mesh.positions[v * 3 + 2] as Scalar));
-        }
+        let vertices: Vec<Point3<Scalar>> = (0..mesh.positions.len() / 3)
+            .map(|v| {
+                Point3::new(mesh.positions[v * 3] as Scalar,
+                            mesh.positions[v * 3 + 1] as Scalar,
+                            mesh.positions[v * 3 + 2] as Scalar)
+            })
+            .collect();
 
-        for t in 0..mesh.texcoords.len() / 2 {
-            uvs.push(Point2::new(mesh.texcoords[t * 2] as Scalar,
-                                 mesh.texcoords[t * 2 + 1] as Scalar));
-        }
+        let uvs: Vec<Point2<Scalar>> = (0..mesh.texcoords.len() / 2)
+            .map(|t| {
+                Point2::new(mesh.texcoords[t * 2] as Scalar,
+                            mesh.texcoords[t * 2 + 1] as Scalar)
+            })
+            .collect();
 
         let normals = if mesh.normals.is_empty() {
-            let mut normals = Vec::new();
-            for idx in &indices {
-                let v1 = vertices[idx.x];
-                let v2 = vertices[idx.y];
-                let v3 = vertices[idx.z];
-                normals.push((v2 - v1).cross(&(v3 - v1)));
-            }
-            Some(Arc::new(normals))
+            Some(Arc::new(indices.iter()
+                .map(|idx| {
+                    let v1 = vertices[idx.x];
+                    let v2 = vertices[idx.y];
+                    let v3 = vertices[idx.z];
+                    (v2 - v1).cross(&(v3 - v1))
+                })
+                .collect()))
         } else {
-            let mut normals = Vec::new();
-            for n in 0..mesh.normals.len() / 3 {
-                normals.push(Vector3::new(mesh.normals[n * 3] as Scalar,
-                                          mesh.normals[n * 3 + 1] as Scalar,
-                                          mesh.normals[n * 3 + 2] as Scalar));
-            }
-            Some(Arc::new(normals))
+            Some(Arc::new((0..mesh.normals.len() / 3)
+                .map(|n| {
+                    Vector3::new(mesh.normals[n * 3] as Scalar,
+                                 mesh.normals[n * 3 + 1] as Scalar,
+                                 mesh.normals[n * 3 + 2] as Scalar)
+                })
+                .collect()))
         };
 
         let uvs = if uvs.is_empty() {

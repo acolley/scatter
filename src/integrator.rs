@@ -184,8 +184,6 @@ fn path_bounce(tracer: &PathTraced,
         l = l + throughput.component_mul(&sample_one_light(&wo, isect, scene, rng));
     }
 
-    let mut throughput = throughput;
-
     // sample BSDF to get next direction for path
     let (f, wi, pdf, flags) = bsdf.sample_f(&wo, rng, BSDF_ALL);
     if f == na::zero() || pdf == 0.0 {
@@ -193,7 +191,7 @@ fn path_bounce(tracer: &PathTraced,
     }
     let flags = flags.unwrap();
     let specular_bounce = flags.intersects(BSDF_SPECULAR);
-    throughput = throughput.component_mul(&f) * na::dot(&wi, &isect.normal).abs() / pdf;
+    let mut throughput = throughput.component_mul(&f) * na::dot(&wi, &isect.normal).abs() / pdf;
     let ray = Ray::new(isect.point + wi * 0.000000000001, wi);
 
     // possibly terminate the path using russian roulette
@@ -205,12 +203,13 @@ fn path_bounce(tracer: &PathTraced,
         throughput = throughput / continue_probability;
     }
 
+    // Reached maximum depth so terminate path.
     if bounce == tracer.depth() {
         return l;
     }
 
-    l = l +
-        match scene.trace(&ray) {
+    l +
+    match scene.trace(&ray) {
         Some(isect) => {
             // TODO: take transmittance into account
             path_bounce(tracer,
@@ -231,8 +230,7 @@ fn path_bounce(tracer: &PathTraced,
             }
             na::zero()
         }
-    };
-    l
+    }
 }
 
 impl Integrator for PathTraced {
