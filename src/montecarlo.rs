@@ -1,7 +1,7 @@
 
 use std::f64::consts;
 
-use na::{Vec3};
+use na::{Vector3};
 
 #[inline]
 pub fn concentric_sample_disc(u1: f64, u2: f64) -> (f64, f64) {
@@ -45,8 +45,8 @@ pub fn concentric_sample_disc(u1: f64, u2: f64) -> (f64, f64) {
 }
 
 #[inline]
-pub fn cosine_sample_hemisphere(u1: f64, u2: f64) -> Vec3<f64> {
+pub fn cosine_sample_hemisphere(u1: f64, u2: f64) -> Vector3<f64> {
 	let (x, y) = concentric_sample_disc(u1, u2);
     let z = f64::max(0.0, 1.0 - x*x - y*y).sqrt();
-    Vec3::new(x, y, z)
+    Vector3::new(x, y, z)
 }

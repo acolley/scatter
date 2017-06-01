@@ -3,8 +3,9 @@ use std::f64::consts;
 use math;
 use spectrum::{Spectrum};
 
+use alga::linear::{ProjectiveTransformation, Transformation};
 use na;
-use na::{Mat3, Rot3, Transform};
+use na::{Matrix3, Rotation3, Transform};
 
 use math::{Clamp, Scalar, Vector};
 use montecarlo::{cosine_sample_hemisphere};
@@ -13,21 +14,21 @@ use rand::{Rng};
 pub type Pdf = Scalar;
 
 bitflags! {
-    flags BxDFType: u32 {
-        const BSDF_REFLECTION       = 0b00000001,
-        const BSDF_TRANSMISSION     = 0b00000010,
-        const BSDF_DIFFUSE          = 0b00000100,
-        const BSDF_GLOSSY           = 0b00001000,
-        const BSDF_SPECULAR         = 0b00010000,
+    pub struct BxDFType: u32 {
+        const BSDF_REFLECTION       = 0b00000001;
+        const BSDF_TRANSMISSION     = 0b00000010;
+        const BSDF_DIFFUSE          = 0b00000100;
+        const BSDF_GLOSSY           = 0b00001000;
+        const BSDF_SPECULAR         = 0b00010000;
         const BSDF_ALL_TYPES        = BSDF_DIFFUSE.bits
                                       | BSDF_GLOSSY.bits
-                                      | BSDF_SPECULAR.bits,
+                                      | BSDF_SPECULAR.bits;
         const BSDF_ALL_REFLECTION   = BSDF_REFLECTION.bits
-                                      | BSDF_ALL_TYPES.bits,
+                                      | BSDF_ALL_TYPES.bits;
         const BSDF_ALL_TRANSMISSION = BSDF_TRANSMISSION.bits
-                                      | BSDF_ALL_TYPES.bits,
+                                      | BSDF_ALL_TYPES.bits;
         const BSDF_ALL              = BSDF_ALL_REFLECTION.bits
-                                      | BSDF_ALL_TRANSMISSION.bits
+                                      | BSDF_ALL_TRANSMISSION.bits;
     }
 }
 
@@ -139,7 +140,7 @@ impl BxDF for SpecularReflection {
 
     fn sample_f(&self, wo: &Vector, _: Scalar, _: Scalar) -> (Spectrum, Vector, Pdf) {
         let wi = Vector::new(-wo.x, -wo.y, wo.z);
-        let l = self.fresnel.evaluate(cos_theta(wo)) * self.r / cos_theta(&wi).abs();
+        let l = self.fresnel.evaluate(cos_theta(wo)).component_mul(&self.r) / cos_theta(&wi).abs();
         (l, wi, 1.0)
     }
 
@@ -207,7 +208,7 @@ impl BxDF for SpecularTransmission {
         let sint_over_sini = eta;
         let wi = Vector::new(sint_over_sini * -wo.x, sint_over_sini * -wo.y, cost);
         let f = self.fresnel.evaluate(cos_theta(wo));
-        let transmitted = (Vector::new(1.0, 1.0, 1.0) - f) * self.t / cos_theta(&wi).abs();
+        let transmitted = (Vector::new(1.0, 1.0, 1.0) - f).component_mul(&self.t) / cos_theta(&wi).abs();
         (transmitted, wi, 1.0)
     }
 
@@ -224,7 +225,7 @@ impl BxDF for SpecularTransmission {
 
 pub struct BSDF {
     normal: Vector,
-    world_to_local: Rot3<Scalar>,
+    world_to_local: Rotation3<Scalar>,
     bxdfs: Vec<Box<BxDF>>
 }
 
@@ -241,10 +242,10 @@ impl BSDF {
         }
     }
 
-    fn world_to_local_from_normal(normal: &Vector) -> Rot3<Scalar> {
+    fn world_to_local_from_normal(normal: &Vector) -> Rotation3<Scalar> {
         let (tangent, binormal) = math::coordinate_system(&normal);
         unsafe {
-            Rot3::new_with_mat(Mat3::new(
+            Rotation3::from_matrix_unchecked(Matrix3::new(
                 tangent.x, tangent.y, tangent.z,
                 binormal.x, binormal.y, binormal.z,
                 normal.x, normal.y, normal.z
@@ -259,12 +260,12 @@ impl BSDF {
 
     #[inline]
     pub fn world_to_local(&self, v: &Vector) -> Vector {
-        self.world_to_local.transform(v)
+        self.world_to_local.transform_vector(v)
     }
 
     #[inline]
     pub fn local_to_world(&self, v: &Vector) -> Vector {
-        self.world_to_local.inv_transform(v)
+        self.world_to_local.inverse_transform_vector(v)
     }
 
     pub fn sample_f<R>(&self, 
@@ -341,21 +342,22 @@ impl BSDF {
 /// Return the amount of energy reflected from a dielectric
 /// surface (i.e. a non-conductor like glass).
 fn fr_diel(cosi: Scalar, cost: Scalar, etai: &Spectrum, etat: &Spectrum) -> Spectrum {
-    let rparl = ((*etat * cosi) - (*etai * cost)) /
-                ((*etat * cosi) + (*etai * cost));
-    let rperp = ((*etai * cosi) - (*etat * cost)) /
-                ((*etai * cosi) + (*etat * cost));
-    (rparl * rparl + rperp * rperp) / 2.0
+    let rparl = ((*etat * cosi) - (*etai * cost)).component_div(
+                    &((*etat * cosi) + (*etai * cost)));
+    let rperp = ((*etai * cosi) - (*etat * cost)).component_div(
+                &((*etai * cosi) + (*etat * cost)));
+    (rparl.component_mul(&rparl) + rperp.component_mul(&rperp)) / 2.0
 }
 
 /// Return the amount of energy reflected from a conductor.
 fn fr_cond(cosi: Scalar, eta: &Spectrum, k: &Spectrum) -> Spectrum {
-    let tmp = (*eta * *eta + *k * *k) * cosi * cosi;
-    let rparl2 = (tmp - (*eta * 2.0 * cosi) + 1.0) /
-                 (tmp + (*eta * 2.0 * cosi) + 1.0);
-    let tmp_f = *eta * *eta + *k * *k;
-    let rperp2 = (tmp_f - (*eta * 2.0 * cosi) + cosi * cosi) /
-                 (tmp_f + (*eta * 2.0 * cosi) + cosi * cosi);
+    let cosi_sq = cosi * cosi;
+    let tmp = (eta.component_mul(eta) + k.component_mul(k)) * cosi_sq;
+    let rparl2 = (tmp - (*eta * 2.0 * cosi) + Vector::from_element(1.0)).component_div(
+                 &(tmp + (*eta * 2.0 * cosi) + Vector::from_element(1.0)));
+    let tmp_f = eta.component_mul(eta) + k.component_mul(k);
+    let rperp2 = (tmp_f - (*eta * 2.0 * cosi) + Vector::from_element(cosi_sq)).component_div(
+                 &(tmp_f + (*eta * 2.0 * cosi) + Vector::from_element(cosi_sq)));
     (rparl2 + rperp2) / 2.0
 }
 

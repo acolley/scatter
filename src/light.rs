@@ -2,7 +2,7 @@
 use std::f64::consts;
 
 use na;
-use na::{Norm, Pnt3, Vec3};
+use na::{Point3, Vector3};
 
 use ncollide::utils::{triangle_area};
 use ncollide::shape::{Ball3, Cuboid3, Triangle3, TriMesh3};
@@ -57,7 +57,7 @@ impl Light for PointLight {
     /// point in the scene.
     fn sample(&self, p: &Point) -> (Spectrum, Vector) {
         let mut wi = self.position - *p;
-        let dist = wi.sqnorm();
+        let dist = wi.norm_squared();
         wi.normalize_mut();
         if dist > 0.0 && dist <= self.radius * self.radius {
             let attenuation = (1.0 / dist) * self.radius;
@@ -70,7 +70,7 @@ impl Light for PointLight {
 
     /// Is the point p in shadow cast by this light?
     fn shadow(&self, p: &Point, scene: &Scene) -> bool {
-        let dist = na::dist(&self.position, p);
+        let dist = na::distance(&self.position, p);
         let mut dir = self.position - *p;
         dir.normalize_mut();
         let ray = Ray::new(*p, dir);
@@ -233,18 +233,18 @@ impl Light for DirectionalLight {
 // #[test]
 // fn test_DirectionalLight_sample() {
 //     // point is irrelevant for a directional light
-//     let l = DirectionalLight::new(1.0, na::one(), Vec3::y());
-//     let p = Pnt3::new(0.0, 0.0, 0.0);
-//     let n = -Vec3::y();
+//     let l = DirectionalLight::new(1.0, na::one(), Vector3::y());
+//     let p = Point3::new(0.0, 0.0, 0.0);
+//     let n = -Vector3::y();
 //     let value = l.sample(&p, &n);
 //     assert_approx_eq!(value, na::one());
 // }
 
 // #[test]
 // fn test_PointLight_sample() {
-//     let l = PointLight::new(1.0, na::one(), Pnt3::new(0.0, 0.0, 0.0), 1.0);
-//     let p = Pnt3::new(0.0, 0.0, 0.0);
-//     let n = Vec3::x();
+//     let l = PointLight::new(1.0, na::one(), Point3::new(0.0, 0.0, 0.0), 1.0);
+//     let p = Point3::new(0.0, 0.0, 0.0);
+//     let n = Vector3::x();
 //     let value = l.sample(&p, &n);
 //     assert_approx_eq!(value, na::one());
 // }

@@ -1,5 +1,5 @@
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{HashMap};
 use std::error;
 use std::fmt;
 use std::path::{Path};
@@ -8,12 +8,12 @@ use std::sync::Arc;
 
 use image;
 use na;
-use na::{Iso3};
-use ncollide::bounding_volume::{AABB3, HasAABB};
-use ncollide::ray::{RayCast};
-use ncollide::shape::{Ball, Cuboid, TriMesh3};
+use na::{Isometry3};
+use ncollide::bounding_volume::{AABB3};
+use ncollide::query::{RayCast};
+use ncollide::shape::{Ball, Cuboid, Shape, TriMesh3};
 use serde_json;
-use serde_json::{Value};
+use serde_json::{Map, Value};
 
 use camera::{Camera, PerspectiveCamera};
 use integrator::{Integrator, PathTraced, Whitted};
@@ -25,7 +25,9 @@ use scene::{Scene, SceneNode};
 use spectrum::{Spectrum};
 use texture::{ConstantTexture, ImageTexture, Texture};
 
-pub type Shape = Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>;
+// TODO: rewrite in order to use #[derive(Serialize, Deserialize)]
+
+pub type Intersectable = Box<RayCast<Point, Isometry3<Scalar>> + Sync + Send>;
 
 pub struct View {
     pub camera: Arc<Camera + Sync + Send>,
@@ -40,10 +42,10 @@ impl View {
                depth: i32,
                renderer: Arc<Renderer + Sync + Send>) -> View {
         View {
-            camera : camera,
-            samples : samples,
-            depth : depth,
-            renderer : renderer
+            camera,
+            samples,
+            depth,
+            renderer
         }
     }
 }
@@ -143,11 +145,11 @@ pub type Result<T> = result::Result<T, Error>;
 pub fn parse_scene(json: &str) -> Result<(Scene, HashMap<String, View>)> {
 	let data: Value = try!(serde_json::from_str(json));
 
-    let cameras = try!(data.find("cameras").ok_or(Error::MissingKey("cameras")));
-    let views = try!(data.find("views").ok_or(Error::MissingKey("views")));
-    let objects = try!(data.find("objects").ok_or(Error::MissingKey("objects")));
-    let materials = try!(data.find("materials").ok_or(Error::MissingKey("materials")));
-    let lights = try!(data.find("lights").ok_or(Error::MissingKey("lights")));
+    let cameras = try!(data.pointer("/cameras").ok_or(Error::MissingKey("cameras")));
+    let views = try!(data.pointer("/views").ok_or(Error::MissingKey("views")));
+    let objects = try!(data.pointer("/objects").ok_or(Error::MissingKey("objects")));
+    let materials = try!(data.pointer("/materials").ok_or(Error::MissingKey("materials")));
+    let lights = try!(data.pointer("/lights").ok_or(Error::MissingKey("lights")));
 
     let cameras = try!(parse_cameras(cameras));
     let views = try!(parse_views(views, &cameras));
@@ -162,6 +164,16 @@ pub fn parse_scene(json: &str) -> Result<(Scene, HashMap<String, View>)> {
     Ok((scene, views))
 }
 
+/// Parse a map of camera names to camera objects.
+///
+/// Structure:
+/// {
+///     "cameras": {
+///         "main": {
+///             ...
+///         }
+///     }
+/// }
 fn parse_cameras(data: &Value) -> Result<HashMap<String, Arc<Camera + Sync + Send>>> {
     let data = try!(data.as_object().ok_or(Error::ExpectedObject("cameras")));
 
@@ -174,25 +186,25 @@ fn parse_cameras(data: &Value) -> Result<HashMap<String, Arc<Camera + Sync + Sen
 }
 
 fn parse_camera(data: &Value) -> Result<Arc<Camera + Sync + Send>> {
-    let transform = try!(data.find("transform").ok_or(Error::MissingKey("transform")));
+    let transform = try!(data.pointer("/transform").ok_or(Error::MissingKey("transform")));
     let transform = try!(parse_transform(transform));
 
-    let width = try!(data.find("width").ok_or(Error::MissingKey("width")));
+    let width = try!(data.pointer("/width").ok_or(Error::MissingKey("width")));
     let width = try!(try_get_u64(width, "width"));
 
-    let height = try!(data.find("height").ok_or(Error::MissingKey("height")));
+    let height = try!(data.pointer("/height").ok_or(Error::MissingKey("height")));
     let height = try!(try_get_u64(height, "height"));
 
-    let fov = try!(data.find("fov").ok_or(Error::MissingKey("fov")));
+    let fov = try!(data.pointer("/fov").ok_or(Error::MissingKey("fov")));
     let fov = try!(try_get_f64(fov, "fov"));
 
-    let near = try!(data.find("near").ok_or(Error::MissingKey("near")));
+    let near = try!(data.pointer("/near").ok_or(Error::MissingKey("near")));
     let near = try!(try_get_f64(near, "near"));
 
-    let far = try!(data.find("far").ok_or(Error::MissingKey("far")));
+    let far = try!(data.pointer("/far").ok_or(Error::MissingKey("far")));
     let far = try!(try_get_f64(far, "far"));
 
-    let camera_type = try!(data.find("type").ok_or(Error::MissingKey("type")));
+    let camera_type = try!(data.pointer("/type").ok_or(Error::MissingKey("type")));
     let camera_type = try!(try_get_string(camera_type, "type"));
 
     match camera_type {
@@ -218,18 +230,18 @@ fn parse_views(data: &Value, cameras: &HashMap<String, Arc<Camera + Sync + Send>
 }
 
 fn parse_view(data: &Value, cameras: &HashMap<String, Arc<Camera + Sync + Send>>) -> Result<View> {
-    let camera = try!(data.find("camera").ok_or(Error::MissingKey("camera")));
-    let camera = try!(camera.as_string().ok_or(Error::ExpectedString("camera")));
+    let camera = try!(data.pointer("/camera").ok_or(Error::MissingKey("camera")));
+    let camera = try!(camera.as_str().ok_or(Error::ExpectedString("camera")));
     // let camera = try!(cameras.get(camera).ok_or(Error::MissingReference(("Camera", camera))));
     let camera = cameras.get(camera).unwrap();
 
-    let samples = try!(data.find("samples").ok_or(Error::MissingKey("samples")));
+    let samples = try!(data.pointer("/samples").ok_or(Error::MissingKey("samples")));
     let samples = try!(try_get_i64(samples, "samples"));
 
-    let depth = try!(data.find("depth").ok_or(Error::MissingKey("depth")));
+    let depth = try!(data.pointer("/depth").ok_or(Error::MissingKey("depth")));
     let depth = try!(try_get_i64(depth, "depth"));
 
-    let integrator = try!(data.find("integrator").ok_or(Error::MissingKey("integrator")));
+    let integrator = try!(data.pointer("/integrator").ok_or(Error::MissingKey("integrator")));
     let integrator = try!(try_get_string(integrator, "integrator"));
 
     let integrator = match integrator {
@@ -238,8 +250,8 @@ fn parse_view(data: &Value, cameras: &HashMap<String, Arc<Camera + Sync + Send>>
         _ => panic!("Unrecognised integrator: {}", integrator)
     };
 
-    let renderer = try!(data.find("renderer").ok_or(Error::MissingKey("renderer")));
-    let renderer = try!(renderer.as_string().ok_or(Error::ExpectedString("renderer")));
+    let renderer = try!(data.pointer("/renderer").ok_or(Error::MissingKey("renderer")));
+    let renderer = try!(renderer.as_str().ok_or(Error::ExpectedString("renderer")));
     let renderer = match renderer {
         "Standard" => Arc::new(StandardRenderer::new(integrator)) as Arc<Renderer + Sync + Send>,
         _ => panic!("Unrecognised renderer: {}", renderer)
@@ -271,7 +283,7 @@ fn parse_material(data: &Value) -> Result<Arc<Material + Sync + Send>> {
     }
 }
 
-fn parse_diffuse_material(data: &BTreeMap<String, Value>) -> Result<DiffuseMaterial> {
+fn parse_diffuse_material(data: &Map<String, Value>) -> Result<DiffuseMaterial> {
     let texture = try!(data.get("texture").ok_or(Error::MissingKey("texture")));
     let texture = try!(parse_texture(&texture));
     Ok(DiffuseMaterial::new(texture))
@@ -289,13 +301,13 @@ fn parse_texture(data: &Value) -> Result<Box<Texture + Sync + Send>> {
     }
 }
 
-fn parse_constant_texture(data: &BTreeMap<String, Value>) -> Result<ConstantTexture> {
+fn parse_constant_texture(data: &Map<String, Value>) -> Result<ConstantTexture> {
     let colour = try!(data.get("colour").ok_or(Error::MissingKey("colour")));
     let colour = try!(parse_spectrum(colour));
     Ok(ConstantTexture::new(colour))
 }
 
-fn parse_image_texture(data: &BTreeMap<String, Value>) -> Result<ImageTexture> {
+fn parse_image_texture(data: &Map<String, Value>) -> Result<ImageTexture> {
     let filename = try!(data.get("filename").ok_or(Error::MissingKey("filename")));
     let filename = try!(try_get_string(filename, "filename"));
     // TODO: use a centralised location for loading/storing assets
@@ -328,33 +340,33 @@ fn parse_object(data: &Value, materials: &HashMap<String, Arc<Material + Sync + 
     let transform = try!(data.get("transform").ok_or(Error::MissingKey("transform")));
     let transform = try!(parse_transform(transform));
 
-    let shape = try!(data.get("shape").ok_or(Error::MissingKey("shape")));
-    let shape = try!(try_get_string(shape, "shape"));
-    let (shape, aabb) = match shape {
+    let Intersectable = try!(data.get("Intersectable").ok_or(Error::MissingKey("Intersectable")));
+    let Intersectable = try!(try_get_string(Intersectable, "Intersectable"));
+    let (Intersectable, aabb) = match Intersectable {
         "Cuboid" => try!(parse_cuboid(data, &transform)),
         "Ball" => try!(parse_ball(data, &transform)),
-        _ => panic!("Unrecognised shape: {}", shape)
+        _ => panic!("Unrecognised Intersectable: {}", Intersectable)
     };
 
-    Ok(SceneNode::new(transform, material.clone(), shape, aabb))
+    Ok(SceneNode::new(transform, material.clone(), Intersectable, aabb))
 }
 
-fn parse_cuboid(data: &BTreeMap<String, Value>, transform: &Iso3<Scalar>) -> Result<(Shape, AABB3<Scalar>)> {
+fn parse_cuboid(data: &Map<String, Value>, transform: &Isometry3<Scalar>) -> Result<(Intersectable, AABB3<Scalar>)> {
     let extents = try!(data.get("extents").ok_or(Error::MissingKey("extents")));
     let extents = try!(parse_vector(extents));
 
     let cuboid = Cuboid::new(extents);
     let aabb = cuboid.aabb(transform);
-    Ok((Box::new(cuboid) as Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>, aabb))
+    Ok((Box::new(cuboid) as Box<RayCast<Point, Isometry3<Scalar>> + Sync + Send>, aabb))
 }
 
-fn parse_ball(data: &BTreeMap<String, Value>, transform: &Iso3<Scalar>) -> Result<(Shape, AABB3<Scalar>)> {
+fn parse_ball(data: &Map<String, Value>, transform: &Isometry3<Scalar>) -> Result<(Intersectable, AABB3<Scalar>)> {
     let radius = try!(data.get("radius").ok_or(Error::MissingKey("radius")));
     let radius = try!(try_get_f64(radius, "radius"));
 
     let ball = Ball::new(radius);
     let aabb = ball.aabb(transform);
-    Ok((Box::new(ball) as Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>, aabb))
+    Ok((Box::new(ball) as Box<RayCast<Point, Isometry3<Scalar>> + Sync + Send>, aabb))
 }
 
 fn parse_lights(data: &Value) -> Result<Vec<Box<Light + Sync + Send>>> {
@@ -383,7 +395,7 @@ fn parse_light(data: &Value) -> Result<Box<Light + Sync + Send>> {
     }
 }
 
-fn parse_point_light(data: &BTreeMap<String, Value>, colour: Spectrum) -> Result<PointLight> {
+fn parse_point_light(data: &Map<String, Value>, colour: Spectrum) -> Result<PointLight> {
     let position = try!(data.get("position").ok_or(Error::MissingKey("position")));
     let position = try!(parse_point(position));
 
@@ -419,7 +431,7 @@ fn parse_point(data: &Value) -> Result<Point> {
     Ok(Point::new(x, y, z))
 }
 
-fn parse_transform(data: &Value) -> Result<Iso3<Scalar>> {
+fn parse_transform(data: &Value) -> Result<Isometry3<Scalar>> {
     let data = try!(data.as_object().ok_or(Error::ExpectedObject("transform")));
 
     let position = try!(data.get("position").ok_or(Error::MissingKey("position")));
@@ -430,7 +442,7 @@ fn parse_transform(data: &Value) -> Result<Iso3<Scalar>> {
         None => na::zero()
     };
 
-    Ok(Iso3::new(position, rotation))
+    Ok(Isometry3::new(position, rotation))
 }
 
 fn parse_spectrum(data: &Value) -> Result<Spectrum> {
@@ -447,18 +459,15 @@ fn parse_spectrum(data: &Value) -> Result<Spectrum> {
 }
 
 fn try_get_string<'a>(value: &'a Value, key: &'static str) -> Result<&'a str> {
-    value.as_string().ok_or(Error::ExpectedString(key))
+    value.as_str().ok_or(Error::ExpectedString(key))
 }
 
-fn try_get_object<'a>(value: &'a Value, key: &'static str) -> Result<&'a BTreeMap<String, Value>> {
+fn try_get_object<'a>(value: &'a Value, key: &'static str) -> Result<&'a Map<String, Value>> {
     value.as_object().ok_or(Error::ExpectedObject(key))
 }
 
 fn try_get_u64(value: &Value, key: &'static str) -> Result<u64> {
-    match *value {
-        Value::U64(n) => Ok(n),
-        _ => Err(Error::ExpectedU64(key))
-    }
+    value.as_u64().ok_or(Error::ExpectedU64(key))
 }
 
 fn try_get_f64(value: &Value, key: &'static str) -> Result<f64> {
@@ -466,9 +475,5 @@ fn try_get_f64(value: &Value, key: &'static str) -> Result<f64> {
 }
 
 fn try_get_i64(value: &Value, key: &'static str) -> Result<i64> {
-    match *value {
-        Value::I64(n) => Ok(n),
-        Value::U64(n) => Ok(n as i64),
-        _ => Err(Error::ExpectedI64(key))
-    }
+    value.as_i64().ok_or(Error::ExpectedI64(key))
 }

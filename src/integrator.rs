@@ -33,7 +33,7 @@ fn sample_light(light: &Box<Light + Send + Sync>,
     if f == na::zero() || light.shadow(&isect.point, scene) {
         na::zero()
     } else {
-        f * li * na::dot(&isect.normal, &wi)
+        f.component_mul(&li) * na::dot(&isect.normal, &wi)
     }
 }
 
@@ -80,7 +80,7 @@ pub fn specular_reflect(
         // to avoid intersection with the surface we just came from
         let ray = Ray::new_with_depth(isect.point + wi * 0.000000000001, wi, ray.depth + 1);
         let li = renderer.render(&ray, scene, rng);
-        let l = f * li * (na::dot(&wi, n).abs() / pdf);
+        let l = f.component_mul(&li) * (na::dot(&wi, n).abs() / pdf);
         l
     } else {
         na::zero()
@@ -103,7 +103,7 @@ pub fn specular_transmit(
         // to avoid intersection with the surface we just came from
         let ray = Ray::new_with_depth(isect.point + wi * 0.000000000001, wi, ray.depth + 1);
         let li = renderer.render(&ray, scene, rng);
-        let l = f * li * (na::dot(&wi, n).abs() / pdf);
+        let l = f.component_mul(&li) * (na::dot(&wi, n).abs() / pdf);
         l
     } else {
         na::zero()
@@ -186,9 +186,9 @@ fn path_bounce(
         // TODO: this should perform proper sampling
         // using Monte Carlo techniques, currently it's
         // exactly the same as the other branch
-        l = l + throughput * sample_one_light(&wo, &isect, scene, rng);
+        l = l + throughput.component_mul(&sample_one_light(&wo, &isect, scene, rng));
     } else {
-        l = l + throughput * sample_one_light(&wo, &isect, scene, rng);
+        l = l + throughput.component_mul(&sample_one_light(&wo, &isect, scene, rng));
     }
 
     let mut throughput = throughput.clone();
@@ -200,7 +200,7 @@ fn path_bounce(
     }
     let flags = flags.unwrap();
     let specular_bounce = flags.intersects(BSDF_SPECULAR);
-    throughput = throughput * f * na::dot(&wi, &isect.normal).abs() / pdf;
+    throughput = throughput.component_mul(&f) * na::dot(&wi, &isect.normal).abs() / pdf;
     let ray = Ray::new(isect.point + wi * 0.000000000001, wi);
 
     // possibly terminate the path using russian roulette

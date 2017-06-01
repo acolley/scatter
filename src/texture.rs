@@ -2,14 +2,14 @@
 use std::sync::Arc;
 
 use na;
-use na::{Pnt2};
+use na::{Point2};
 
 use image::{GenericImage, RgbImage};
 use math::{Scalar};
 use spectrum::{Spectrum};
 
 pub trait Texture {
-	fn sample(&self, uv: &Option<Pnt2<f64>>) -> Spectrum;
+	fn sample(&self, uv: &Option<Point2<f64>>) -> Spectrum;
 }
 
 /// A Texture that just has a single
@@ -28,7 +28,7 @@ impl ConstantTexture {
 
 impl Texture for ConstantTexture {
     #[inline]
-    fn sample(&self, _: &Option<Pnt2<f64>>) -> Spectrum {
+    fn sample(&self, _: &Option<Point2<f64>>) -> Spectrum {
         self.colour
     }
 }
@@ -48,7 +48,7 @@ impl ImageTexture {
 }
 
 impl Texture for ImageTexture {
-    fn sample(&self, uv: &Option<Pnt2<f64>>) -> Spectrum {
+    fn sample(&self, uv: &Option<Point2<f64>>) -> Spectrum {
         match *uv {
             Some(uv) => {
                 let (width, height) = self.data.dimensions();

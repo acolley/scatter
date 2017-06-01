@@ -3,14 +3,14 @@ use std::f64;
 use std::f64::consts;
 
 use na;
-use na::{Norm, Pnt3, Vec3};
+use na::{Point3, Vector3};
 
 pub use na::{dot};
 
 // TODO: allow scalar to be adjusted with a cfg build flag
 pub type Scalar = f64;
-pub type Point = Pnt3<Scalar>;
-pub type Vector = Vec3<Scalar>;
+pub type Point = Point3<Scalar>;
+pub type Vector = Vector3<Scalar>;
 pub type Normal = Vector;
 
 pub fn uniform_sample_sphere(u1: Scalar, u2: Scalar) -> Vector {
@@ -36,7 +36,7 @@ pub fn coordinate_system(v1: &Vector) -> (Vector, Vector) {
             Vector::new(0.0, v1.z * invlen, -v1.y * invlen)
         }
     };
-    let v3 = na::cross(v1, &v2);
+    let v3 = v1.cross(&v2);
     (v2, v3)
 }
 
@@ -67,10 +67,10 @@ impl Clamp for Scalar {
 
 #[test]
 fn test_unit_y() {
-    let vy = Vec3::y();
+    let vy = Vector3::y();
     let (vz, vx) = coordinate_system(&vy);
-    assert_approx_eq!(vx, -Vec3::x());
-    assert_approx_eq!(vz, -Vec3::z());
+    assert_approx_eq!(vx, -Vector3::x());
+    assert_approx_eq!(vz, -Vector3::z());
 }
 
 #[test]

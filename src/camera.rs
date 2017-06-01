@@ -1,6 +1,7 @@
 extern crate nalgebra as na;
 
-use self::na::{Iso3, OrthoMat3, PerspMat3, Pnt4, Translation};
+use alga::general::Inverse;
+use self::na::{Isometry3, Orthographic3, Perspective3, Point3, Translation, Vector4};
 
 use math::{Point, Scalar, Vector};
 use ray::{Ray};
@@ -15,41 +16,44 @@ pub trait Camera {
 pub struct PerspectiveCamera {
     width: u32,
     height: u32,
-    transform: Iso3<Scalar>,
-    proj: PerspMat3<Scalar>
+    transform: Isometry3<Scalar>,
+    proj: Perspective3<Scalar>
 }
 
 impl PerspectiveCamera {
-    pub fn new(transform: Iso3<Scalar>,
+    pub fn new(transform: Isometry3<Scalar>,
                width: u32,
                height: u32,
                fov: Scalar,
                znear: Scalar,
                zfar: Scalar) -> PerspectiveCamera {
         PerspectiveCamera {
-            width : width,
-            height : height,
-            transform : transform,
-            proj : PerspMat3::new((width as Scalar) / (height as Scalar), fov, znear, zfar)
+            width,
+            height,
+            transform,
+            proj : Perspective3::new((width as Scalar) / (height as Scalar), fov, znear, zfar)
         }
     }
 }
 
 impl Camera for PerspectiveCamera {
     fn ray_from(&self, x: Scalar, y: Scalar) -> Ray {
-        let viewproj = na::to_homogeneous(&self.transform) * na::inv(&self.proj.to_mat()).expect("Projection matrix is not invertible");
+        let viewproj = self.transform.to_homogeneous() * self.proj.as_matrix().inverse();
         let device_x = ((x / self.width as Scalar) - 0.5) * 2.0;
         let device_y = -((y / self.height as Scalar) - 0.5) * 2.0;
-        let point = Pnt4::new(device_x, device_y, -1.0, 1.0);
+        let point = Vector4::new(device_x, device_y, -1.0, 1.0);
         let h_eye = viewproj * point;
-        let eye: Point = na::from_homogeneous(&h_eye);
-        Ray::new(self.transform.translation().to_pnt(), na::normalize(&(eye - self.transform.translation().to_pnt())))
+        let eye: Point = Point::from_homogeneous(h_eye).expect("Could not convert from homogeneous Vector.");
+        let origin = Point3::from_coordinates(self.transform.translation.vector);
+        let direction = na::normalize(&(eye - origin));
+        Ray::new(origin, direction)
     }
 
     #[inline]
     fn look_at_z(&mut self, at: &Point, up: &Vector) {
-        let mut transform = self.transform;
-        transform.look_at_z(&self.transform.translation().to_pnt(), at, up);
+        let origin = Point3::from_coordinates(self.transform.translation.vector);
+        // FIXME: this may need to be look_at_rh instead.
+        self.transform = Isometry3::look_at_lh(&origin, at, up);
     }
 
     #[inline]
@@ -62,6 +66,6 @@ impl Camera for PerspectiveCamera {
 // pub struct OrthographicCamera {
 //     width: u32,
 //     height: u32,
-//     iso: Iso3<Scalar>,
-//     proj: OrthoMat3<Scalar>
+//     iso: Isometry3<Scalar>,
+//     proj: Orthographic3<Scalar>
 // }

@@ -4,10 +4,10 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use na;
-use na::{Iso3, Pnt2, Pnt3};
-use ncollide::bounding_volume::{AABB3, HasAABB};
+use na::{Isometry3, Point2, Point3};
+use ncollide::bounding_volume::{AABB3};
 use ncollide::partitioning::{BVT};
-use ncollide::ray::{RayCast, RayInterferencesCollector};
+use ncollide::query::{RayCast, RayInterferencesCollector};
 
 use bxdf::{BSDF};
 use light::{Light};
@@ -19,9 +19,9 @@ use ray::{Ray};
 /// Scene that can be shaded.
 pub struct SceneNode {
     pub uuid: Uuid,
-    pub transform: Iso3<Scalar>,
+    pub transform: Isometry3<Scalar>,
     pub material: Arc<Material + Sync + Send>,
-    pub geom: Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>,
+    pub geom: Box<RayCast<Point, Isometry3<Scalar>> + Sync + Send>,
     pub aabb: AABB3<Scalar>
 }
 
@@ -45,12 +45,12 @@ impl Intersection {
 
 impl SceneNode {
     pub fn new(
-        transform: Iso3<Scalar>,
+        transform: Isometry3<Scalar>,
         material: Arc<Material + Sync + Send>,
-        geom: Box<RayCast<Point, Iso3<Scalar>> + Sync + Send>,
+        geom: Box<RayCast<Point, Isometry3<Scalar>> + Sync + Send>,
         aabb: AABB3<Scalar>) -> SceneNode
     // where M: 'static + Sync + Send + Material,
-    //       N: 'static + Sync + Send + RayCast<Point, Iso3<Scalar>> + HasAABB<Point, Iso3<Scalar>> {
+    //       N: 'static + Sync + Send + RayCast<Point, Isometry3<Scalar>> + HasAABB<Point, Isometry3<Scalar>> {
         {
         SceneNode {
             uuid : Uuid::new_v4(),
@@ -69,7 +69,7 @@ pub struct Scene {
 
 /// Get the nearest node and surface info at the intersection
 /// point intersected by the given ray.
-fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneNode, f64, Vector, Option<Pnt2<f64>>)> {
+fn get_nearest<'a>(ray: &Ray, nodes: &'a [Arc<SceneNode>]) -> Option<(&'a SceneNode, f64, Vector, Option<Point2<f64>>)> {
     let mut nearest_node: Option<&SceneNode> = None;
     let mut nearest_toi = std::f64::MAX;
     let mut nearest_normal = na::zero();

@@ -1,3 +1,6 @@
+extern crate alga;
+#[macro_use]
+extern crate approx;
 #[macro_use]
 extern crate bitflags;
 extern crate clap;
@@ -5,7 +8,6 @@ extern crate image;
 extern crate rand;
 extern crate serde_json;
 extern crate uuid;
-#[macro_use(assert_approx_eq)]
 extern crate nalgebra as na;
 extern crate ncollide;
 extern crate tobj;
@@ -19,9 +21,10 @@ use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
 
-use self::na::{Iso3, Pnt2, Pnt3, Vec3};
+use na::{Isometry3, Point2, Point3, Vector3};
 use ncollide::shape::{Ball, Cuboid, TriMesh3};
 
+mod assets;
 mod bxdf;
 mod camera;
 mod integrator;
@@ -62,7 +65,7 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
 
         for i in 0..mesh.indices.len() / 3 {
             indices.push(
-                Pnt3::new(mesh.indices[i * 3] as usize,
+                Point3::new(mesh.indices[i * 3] as usize,
                           mesh.indices[i * 3 + 1] as usize,
                           mesh.indices[i * 3 + 2] as usize)
             );
@@ -70,7 +73,7 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
 
         for v in 0..mesh.positions.len() / 3 {
             vertices.push(
-                Pnt3::new(mesh.positions[v * 3] as Scalar,
+                Point3::new(mesh.positions[v * 3] as Scalar,
                           mesh.positions[v * 3 + 1] as Scalar,
                           mesh.positions[v * 3 + 2] as Scalar)
             );
@@ -78,7 +81,7 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
 
         for t in 0..mesh.texcoords.len() / 2 {
             uvs.push(
-                Pnt2::new(mesh.texcoords[t * 2] as Scalar,
+                Point2::new(mesh.texcoords[t * 2] as Scalar,
                           mesh.texcoords[t * 2 + 1] as Scalar)
             );
         }
@@ -87,7 +90,7 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
             let mut normals = Vec::new();
             for n in 0..mesh.normals.len() / 3 {
                 normals.push(
-                    Vec3::new(mesh.normals[n * 3] as Scalar,
+                    Vector3::new(mesh.normals[n * 3] as Scalar,
                               mesh.normals[n * 3 + 1] as Scalar,
                               mesh.normals[n * 3 + 2] as Scalar)
                 );
@@ -99,7 +102,7 @@ fn load_obj(filename: &Path) -> Vec<TriMesh3<Scalar>> {
                 let v1 = vertices[idx.x];
                 let v2 = vertices[idx.y];
                 let v3 = vertices[idx.z];
-                normals.push(na::cross(&(v2 - v1), &(v3 - v1)));
+                normals.push((v2 - v1).cross(&(v3 - v1)));
             }
             Some(Arc::new(normals))
         };
