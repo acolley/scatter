@@ -138,15 +138,17 @@ fn render(width: u32,
                         let ray = camera.ray_from(x as Scalar, y as Scalar);
                         renderer.render(&ray, &scene, &mut rng)
                     } else {
-                        (0..samples_per_pixel).map(|_| {
-                            // TODO: make the sampling methods into their
-                            // own trait/struct implementations for different
-                            // types of samplers to be used interchangeably
-                            let dx = rand::random::<Scalar>() - 0.5;
-                            let dy = rand::random::<Scalar>() - 0.5;
-                            let ray = camera.ray_from((x as Scalar) + dx, (y as Scalar) + dy);
-                            renderer.render(&ray, &scene, &mut rng)
-                        }).fold(na::zero(), |sum, c| sum + c)
+                        (0..samples_per_pixel)
+                            .map(|_| {
+                                // TODO: make the sampling methods into their
+                                // own trait/struct implementations for different
+                                // types of samplers to be used interchangeably
+                                let dx = rand::random::<Scalar>() - 0.5;
+                                let dy = rand::random::<Scalar>() - 0.5;
+                                let ray = camera.ray_from((x as Scalar) + dx, (y as Scalar) + dy);
+                                renderer.render(&ray, &scene, &mut rng)
+                            })
+                            .fold(na::zero(), |sum, c| sum + c)
                     };
                     c = c / (samples_per_pixel as Scalar);
                     tx.send((x, y, c))
@@ -259,8 +261,7 @@ fn main() {
                              &scene,
                              &view.renderer);
         let filename = matches.value_of("OUTPUT").unwrap_or(name);
-        let out =
-            &mut File::create(&Path::new(filename)).expect("Could not create image file");
+        let out = &mut File::create(&Path::new(filename)).expect("Could not create image file");
         let img = image::ImageBuffer::from_raw(width, height, colours)
             .expect("Could not create image buffer");
         let _ = image::ImageRgb8(img).save(out, image::PNG);

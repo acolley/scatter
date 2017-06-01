@@ -74,7 +74,8 @@ fn get_nearest<'a>(ray: &Ray,
     let mut nearest_normal = na::zero();
     let mut nearest_uvs = None;
     for node in nodes {
-        if let Some(isect) = node.geom.toi_and_normal_and_uv_with_ray(&node.transform, &ray.ray, false) {
+        if let Some(isect) = node.geom
+            .toi_and_normal_and_uv_with_ray(&node.transform, &ray.ray, false) {
             // check toi is greater than zero to rule out intersection
             // with the node whose surface we're casting a ray from
             // Note: this is not 100% reliable I don't think

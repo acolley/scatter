@@ -55,11 +55,10 @@ pub fn sample_one_light(wo: &Vector,
 /// direct lighting at a surface point
 /// and sampling the BSDF at the intersection.
 pub fn sample_all_lights(wo: &Vector, isect: &Intersection, scene: &Scene) -> Spectrum {
-    let mut l = na::zero();
-    for light in &scene.lights {
-        l = l + sample_light(light, wo, isect, scene, BSDF_ALL - BSDF_SPECULAR);
-    }
-    l
+    scene.lights
+        .iter()
+        .map(|l| sample_light(l, wo, isect, scene, BSDF_ALL - BSDF_SPECULAR))
+        .fold(na::zero(), |acc, c| acc + c)
 }
 
 /// Find the specular reflection component at a surface point.
