@@ -140,7 +140,7 @@ impl BxDF for SpecularReflection {
 
     fn sample_f(&self, wo: &Vector, _: Scalar, _: Scalar) -> (Spectrum, Vector, Pdf) {
         let wi = Vector::new(-wo.x, -wo.y, wo.z);
-        let l = self.fresnel.evaluate(cos_theta(wo)).component_mul(&self.r) / cos_theta(&wi).abs();
+        let l = self.fresnel.evaluate(cos_theta(wo)).component_mul(&(self.r / cos_theta(&wi).abs()));
         (l, wi, 1.0)
     }
 
@@ -212,8 +212,7 @@ impl BxDF for SpecularTransmission {
         let sint_over_sini = eta;
         let wi = Vector::new(sint_over_sini * -wo.x, sint_over_sini * -wo.y, cost);
         let f = self.fresnel.evaluate(cos_theta(wo));
-        let transmitted = (Vector::new(1.0, 1.0, 1.0) - f).component_mul(&self.t) /
-                          cos_theta(&wi).abs();
+        let transmitted = (Vector::new(1.0, 1.0, 1.0) - f).component_mul(&(self.t / cos_theta(&wi).abs()));
         (transmitted, wi, 1.0)
     }
 

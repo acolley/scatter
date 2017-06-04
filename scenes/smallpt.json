@@ -26,7 +26,7 @@
 			"shape": "Ball",
 			"radius": 0.6,
 			"transform": {
-				"position": [1.0, -1.5, 0.8]
+				"position": [-1.0, -1.5, 0.8]
 			},
 			"material": "mirror"
 		},
@@ -34,7 +34,7 @@
 			"shape": "Ball",
 			"radius": 0.6,
 			"transform": {
-				"position": [-1.0, -1.5, 0.2]
+				"position": [1.0, -1.5, 0.2]
 			},
 			"material": "glass"
 		},
@@ -74,7 +74,7 @@
 			"shape": "Cuboid",
 			"extents": [0.01, 3.0, 3.0],
 			"transform": {
-				"position": [3.0, 0.0, 0.0]
+				"position": [-3.0, 0.0, 0.0]
 			},
 			"material": "red"
 		},
@@ -82,7 +82,7 @@
 			"shape": "Cuboid",
 			"extents": [0.01, 3.0, 3.0],
 			"transform": {
-				"position": [-3.0, 0.0, 0.0]
+				"position": [3.0, 0.0, 0.0]
 			},
 			"material": "blue"
 		}

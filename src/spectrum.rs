@@ -1,6 +1,7 @@
 use na;
 use na::Vector3;
 
+// TODO: make this a newtype.
 pub type Spectrum = Vector3<f64>;
 
 // pub struct Spectrum(Vector3<f64>);

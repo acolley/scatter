@@ -2,7 +2,7 @@
 use na::{Point3, Vector3};
 use ncollide::query::Ray3;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Ray {
     pub ray: Ray3<f64>,
     pub depth: i32,

@@ -15,21 +15,28 @@ pub trait Camera {
 
     fn position(&self) -> Point3<Scalar>;
 
-    fn ray_from(&self, x: Scalar, y: Scalar) -> Ray {
-        // Unproject the point from screen space.
+    /// Unproject a point from 2D Screen Space to 3D World Space.
+    fn unproject(&self, x: Scalar, y: Scalar) -> Point3<Scalar> {
         let viewproj = self.view() * self.proj().inverse();
+        // Device coordinates are normalised [-1, 1].
         let device_x = ((x / self.width() as Scalar) - 0.5) * 2.0;
         let device_y = -((y / self.height() as Scalar) - 0.5) * 2.0;
         let point = Vector4::new(device_x, device_y, -1.0, 1.0);
         let h_eye = viewproj * point;
-        let eye: Point3 = Point3::from_homogeneous(h_eye)
-            .expect("Could not convert from homogeneous Vector.");
+        Point3::from_homogeneous(h_eye)
+            .expect("Could not convert from homogeneous Vector.")
+    }
+
+    fn ray_from(&self, x: Scalar, y: Scalar) -> Ray {
+        // Unproject the point from screen space.
+        let eye = self.unproject(x, y);
         let origin = self.position();
         let direction = na::normalize(&(eye - origin));
         Ray::new(origin, direction)
     }
 }
 
+// TODO: cache view and projection matrices for optimisation?
 pub struct PerspectiveCamera {
     width: u32,
     height: u32,

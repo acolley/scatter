@@ -259,7 +259,8 @@ fn main() {
         let colours = render(view.camera.width(),
                              view.camera.height(),
                              nthreads,
-                             view.samples,
+                             samples,
+                            //  view.samples,
                              &view.camera,
                              &scene,
                              &view.renderer);
