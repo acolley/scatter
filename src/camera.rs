@@ -23,12 +23,10 @@ pub trait Camera {
         let device_y = -((y / self.height() as Scalar) - 0.5) * 2.0;
         let point = Vector4::new(device_x, device_y, -1.0, 1.0);
         let h_eye = viewproj * point;
-        Point3::from_homogeneous(h_eye)
-            .expect("Could not convert from homogeneous Vector.")
+        Point3::from_homogeneous(h_eye).expect("Could not convert from homogeneous Vector.")
     }
 
     fn ray_from(&self, x: Scalar, y: Scalar) -> Ray {
-        // Unproject the point from screen space.
         let eye = self.unproject(x, y);
         let origin = self.position();
         let direction = na::normalize(&(eye - origin));

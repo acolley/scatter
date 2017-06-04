@@ -189,7 +189,7 @@ fn render(width: u32,
 fn setup_scene<P: AsRef<Path>>(filename: P) -> (Scene, HashMap<String, View>) {
     let mut f = File::open(filename).expect("Could not open scene file.");
     let mut json_str = String::new();
-    f.read_to_string(&mut json_str);
+    let _ = f.read_to_string(&mut json_str).expect("Failed to read file data.");
 
     match parse::parse_scene(&json_str) {
         Ok(res) => res,
@@ -260,7 +260,7 @@ fn main() {
                              view.camera.height(),
                              nthreads,
                              samples,
-                            //  view.samples,
+                             //  view.samples,
                              &view.camera,
                              &scene,
                              &view.renderer);
